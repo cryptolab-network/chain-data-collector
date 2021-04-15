@@ -1,0 +1,31 @@
+{
+  "name": "chain-data-collector",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "npx tsc",
+    "start": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cryptolab-network/chain-data-collector.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/cryptolab-network/chain-data-collector/issues"
+  },
+  "homepage": "https://github.com/cryptolab-network/chain-data-collector#readme",
+  "dependencies": {
+    "@polkadot/api": "^4.5.1",
+    "cron": "^1.8.2",
+    "mongoose": "^5.12.3"
+  },
+  "devDependencies": {
+    "@types/cron": "^1.7.2",
+    "@types/mongoose": "^5.10.4"
+  }
+}
