@@ -152,7 +152,9 @@ class ChainData {
                     const _identity = new types_1.Identity(intention.accountId.toString());
                     _identity.display = identity.display;
                     _identity.displayParent = identity.displayParent;
-                    return new types_1.Validator(intention.accountId.toString(), intention.exposure, intention.stakingLedger, intention.validatorPrefs);
+                    const validator = new types_1.Validator(intention.accountId.toString(), intention.exposure, intention.stakingLedger, intention.validatorPrefs);
+                    validator.identity = _identity;
+                    return validator;
                 });
             }));
             validators = validators.concat(intentions);

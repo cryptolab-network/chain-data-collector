@@ -1,16 +1,22 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.StatusChange = exports.NominationDbSchema = exports.ValidatorDbSchema = exports.Exposure = exports.Validator = exports.Balance = exports.BalancedNominator = exports.Identity = void 0;
+exports.IdentityDbSchema = exports.StatusChange = exports.NominationDbSchema = exports.ValidatorDbSchema = exports.Exposure = exports.Validator = exports.Balance = exports.BalancedNominator = exports.Identity = void 0;
+const divide = require('divide-bigint');
 class Identity {
     constructor(address) {
         this.address = address;
     }
     getIdentity() {
-        if (this.display === undefined) {
+        if (this.display === undefined || this.display === null) {
             return this.address;
         }
         else {
-            return this.display + '/' + this.displayParent;
+            if (this.displayParent !== undefined && this.displayParent !== null) {
+                return this.displayParent + '/' + this.display;
+            }
+            else {
+                return this.display;
+            }
         }
     }
 }
@@ -20,6 +26,12 @@ class Balance {
         this.freeBalance = free;
         this.lockedBalance = locked;
     }
+    exportString() {
+        return {
+            freeBalance: __toHexString(this.freeBalance),
+            lockedBalance: __toHexString(this.lockedBalance)
+        };
+    }
 }
 exports.Balance = Balance;
 class BalancedNominator {
@@ -27,6 +39,13 @@ class BalancedNominator {
         this.address = address;
         this.targets = targets;
         this.balance = balance;
+    }
+    exportString() {
+        return {
+            address: this.address,
+            targets: this.targets,
+            balance: this.balance.exportString(),
+        };
     }
 }
 exports.BalancedNominator = BalancedNominator;
@@ -55,10 +74,10 @@ class Validator {
     //       v.apy = 0;
     //     }
     apy(decimals, eraReward, validatorCount) {
-        const active = this.exposure.total / decimals;
+        const active = divide(this.exposure.total, decimals);
         const commission = this.prefs.commission / 10000000;
-        const avgRewardOfValidator = ((eraReward / decimals) / BigInt(validatorCount));
-        const apy = active === BigInt(0) ? 0 : (Number(avgRewardOfValidator) * (1 - commission / 100) * 365) / Number(active) * 4;
+        const avgRewardOfValidator = divide(eraReward, decimals) / validatorCount;
+        const apy = active === 0 ? 0 : (avgRewardOfValidator * (1 - commission / 100) * 365) / active * 4;
         return apy;
     }
 }
@@ -75,12 +94,27 @@ class Exposure {
         this.own = own;
         this.others = others;
     }
+    exportString() {
+        return {
+            total: __toHexString(this.total),
+            own: __toHexString(this.own),
+            others: this.others.map((v) => {
+                return v.exportString();
+            })
+        };
+    }
 }
 exports.Exposure = Exposure;
 class IndividualExposure {
     constructor(who, value) {
         this.who = who;
         this.value = value;
+    }
+    exportString() {
+        return {
+            who: this.who,
+            value: __toHexString(this.value),
+        };
     }
 }
 class StakingLedger {
@@ -119,6 +153,7 @@ class IdentityDbSchema {
         this.display = display;
     }
 }
+exports.IdentityDbSchema = IdentityDbSchema;
 /*{
   era: Number,
   exposure:{
@@ -145,5 +180,29 @@ class NominationDbSchema {
         this.apy = apy;
         this.validator = validator;
     }
+    exportString() {
+        console.log('exposure=' + this.exposure.exportString());
+        console.log('nominators=' + this.nominators.map((n) => {
+            return n.exportString();
+        }));
+        return {
+            era: this.era,
+            exposure: this.exposure.exportString(),
+            nominators: this.nominators.map((n) => {
+                return n.exportString();
+            }),
+            commission: this.commission,
+            apy: this.apy,
+            validator: this.validator,
+        };
+    }
 }
 exports.NominationDbSchema = NominationDbSchema;
+const __toHexString = (v) => {
+    let hex = v.toString(16);
+    if (hex.length % 2 === 1) {
+        hex = '0' + hex;
+    }
+    hex = '0x' + hex;
+    return hex;
+};

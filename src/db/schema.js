@@ -51,5 +51,5 @@ exports.NominationSchema = NominationSchema;
 const NominationModel = mongoose_1.model('Nomination', NominationSchema);
 exports.NominationModel = NominationModel;
 function toHexString(v) {
-    return '0x' + v.toString(16);
+    return v.toString(10);
 }

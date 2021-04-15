@@ -64,5 +64,5 @@ const NominationSchema: Schema = new Schema({
 const NominationModel: Model<INomination> = model('Nomination', NominationSchema);
 
 function toHexString(v: bigint) {
-  return '0x' +  v.toString(16);
+  return v.toString(10);
 }

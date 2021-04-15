@@ -168,8 +168,10 @@ class ChainData {
           const _identity = new Identity(intention.accountId.toString());
           _identity.display = identity.display;
           _identity.displayParent = identity.displayParent;
-          return new Validator(intention.accountId.toString(), intention.exposure,
+          const validator = new Validator(intention.accountId.toString(), intention.exposure,
             intention.stakingLedger, intention.validatorPrefs);
+          validator.identity = _identity;
+          return validator;
         })
       )
     )

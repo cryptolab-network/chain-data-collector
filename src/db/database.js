@@ -30,9 +30,9 @@ class DatabaseHandler {
             useUnifiedTopology: true,
             poolSize: 10
         });
-        this.ValidatorModel = db.model('Validator_' + dbName, schema_1.ValidatorSchema);
-        this.NominationModel = db.model('Nomination_' + dbName, schema_1.NominationSchema);
-        this.ChainInfoModel = db.model('ChainInfo_' + dbName, schema_1.ChainInfoSchema);
+        this.ValidatorModel = db.model('Validator_' + dbName, schema_1.ValidatorSchema, 'validator');
+        this.NominationModel = db.model('Nomination_' + dbName, schema_1.NominationSchema, 'nomination');
+        this.ChainInfoModel = db.model('ChainInfo_' + dbName, schema_1.ChainInfoSchema, 'chainInfo');
         db.on('error', console.error.bind(console, 'connection error:'));
         db.once('open', function () {
             return __awaiter(this, void 0, void 0, function* () {
@@ -41,9 +41,9 @@ class DatabaseHandler {
         });
     }
     __initSchema() {
-        this.chainInfoSchema_ = new mongoose_1.Schema(schema_1.ChainInfoSchema, { collection: 'chainInfo' });
-        this.validatorSchema_ = new mongoose_1.Schema(schema_1.ValidatorSchema, { collection: 'validator' });
-        this.nominationSchema_ = new mongoose_1.Schema(types_1.NominationDbSchema, { collection: 'nomination' });
+        this.chainInfoSchema_ = new mongoose_1.Schema(schema_1.ChainInfoSchema);
+        this.validatorSchema_ = new mongoose_1.Schema(schema_1.ValidatorSchema);
+        this.nominationSchema_ = new mongoose_1.Schema(schema_1.NominationSchema);
     }
     getValidatorStatusOfEra(id, era) {
         var _a, _b;
@@ -137,18 +137,16 @@ class DatabaseHandler {
             }
             const { validator, objectData } = yield this.getValidatorStatus(id);
             if (validator === undefined || validator.length === 0) {
-                const vData = new types_1.ValidatorDbSchema(id, data.identity, new types_1.StatusChange(0));
-                console.log(vData);
+                const vData = new types_1.ValidatorDbSchema(id, new types_1.IdentityDbSchema(data.identity.getIdentity()), new types_1.StatusChange(0));
                 yield ((_a = this.ValidatorModel) === null || _a === void 0 ? void 0 : _a.create(vData).catch((err) => console.error(err)));
                 const nData = new types_1.NominationDbSchema(data.era, data.exposure, data.nominators, data.commission, data.apy, id);
-                console.log(nData);
-                yield ((_b = this.NominationModel) === null || _b === void 0 ? void 0 : _b.create(nData).catch((err) => console.error(err)));
+                yield ((_b = this.NominationModel) === null || _b === void 0 ? void 0 : _b.create(nData.exportString()).catch((err) => console.error(err)));
             }
             else {
                 yield ((_c = this.ValidatorModel) === null || _c === void 0 ? void 0 : _c.findOneAndUpdate({
                     id: id
                 }, {
-                    identity: data.identity,
+                    identity: { display: data.identity.getIdentity() },
                     'statusChange.commission': data.commissionChanged
                 }).exec());
                 const nomination = yield ((_d = this.NominationModel) === null || _d === void 0 ? void 0 : _d.findOne({ era: data.era, validator: id }).exec());
@@ -156,8 +154,8 @@ class DatabaseHandler {
                     yield ((_e = this.NominationModel) === null || _e === void 0 ? void 0 : _e.findOneAndUpdate({
                         era: data.era, validator: id,
                     }, {
-                        exposure: data.exposure,
-                        nominators: data.nominators,
+                        exposure: data.exposure.exportString(),
+                        nominators: data.nominators.map((n) => { return n.exportString(); }),
                         commission: data.commission,
                         apy: data.apy,
                     }).exec());
@@ -165,8 +163,8 @@ class DatabaseHandler {
                 }
                 yield ((_f = this.NominationModel) === null || _f === void 0 ? void 0 : _f.create({
                     era: data.era,
-                    exposure: data.exposure,
-                    nominators: data.nominators,
+                    exposure: data.exposure.exportString(),
+                    nominators: data.nominators.map((n) => { return n.exportString(); }),
                     commission: data.commission,
                     apy: data.apy,
                     validator: id

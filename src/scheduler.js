@@ -26,16 +26,18 @@ class Scheduler {
             this.isCaching = true;
             try {
                 console.log('Kusama scheduler starts');
+                yield this.__updateActiveEra();
                 // const validators = await this.chainData.getValidators();
                 const activeEra = yield this.chainData.getActiveEraIndex();
                 const eraReward = yield this.chainData.getEraTotalReward(activeEra - 1);
+                console.log('era reward: ' + eraReward);
                 const validatorWaitingInfo = yield this.chainData.getValidatorWaitingInfo();
                 console.log('Write to database');
                 for (let i = 0; i < validatorWaitingInfo.validators.length; i++) {
                     const validator = validatorWaitingInfo.validators[i];
                     if (validator !== undefined && eraReward !== undefined) {
                         const eraValidatorCount = validatorWaitingInfo.validators.length;
-                        this.__makeValidatorInfoOfEra(validator, eraReward, activeEra, eraValidatorCount);
+                        this.__makeValidatorInfoOfEra(validator, eraReward, activeEra, 900);
                     }
                 }
                 console.log('Kusama scheduler ends');
@@ -48,8 +50,38 @@ class Scheduler {
         }), null, true, 'America/Los_Angeles', null, true);
         job.start();
     }
+    __updateActiveEra() {
+        return __awaiter(this, void 0, void 0, function* () {
+            const era = yield this.chainData.getActiveEraIndex();
+            yield this.db.saveActiveEra(era);
+        });
+    }
     __makeValidatorInfoOfEra(validator, eraReward, era, validatorCount) {
         return __awaiter(this, void 0, void 0, function* () {
+            const lastEraInfo = yield this.db.getValidatorStatusOfEra(validator === null || validator === void 0 ? void 0 : validator.accountId, era - 1);
+            let latestCommission = 0;
+            if (lastEraInfo !== undefined) {
+                if (lastEraInfo.validator !== undefined && lastEraInfo.validator !== null) {
+                    if (lastEraInfo.validator.info !== undefined) {
+                        latestCommission = lastEraInfo.validator.info[0].commission;
+                    }
+                }
+            }
+            let commissionChanged = 0;
+            if (latestCommission != validator.prefs.commission) {
+                console.log(latestCommission, validator.prefs.commission);
+                if (validator.prefs.commission > latestCommission) {
+                    console.log('commission up');
+                    commissionChanged = 1;
+                }
+                else if (validator.prefs.commission < latestCommission) {
+                    console.log('commission down');
+                    commissionChanged = 2;
+                }
+                else {
+                    commissionChanged = 0;
+                }
+            }
             const apy = validator.apy(BigInt(KUSAMA_DECIMAL), BigInt(eraReward), validatorCount);
             const data = {
                 era: era,
@@ -58,7 +90,7 @@ class Scheduler {
                 apy: apy,
                 identity: validator.identity,
                 nominators: validator.nominators,
-                commissionChanged: 0,
+                commissionChanged: commissionChanged,
             };
             yield this.db.saveValidatorNominationData(validator.accountId, data);
         });

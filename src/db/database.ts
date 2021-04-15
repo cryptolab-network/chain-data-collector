@@ -1,5 +1,5 @@
 import { Mongoose, Schema, Model, Document, set } from 'mongoose';
-import { Identity, ValidatorDbSchema, NominationDbSchema, StatusChange } from '../types';
+import { Identity, ValidatorDbSchema, NominationDbSchema, StatusChange, IdentityDbSchema } from '../types';
 import { ValidatorSchema, ValidatorModel, NominationModel, NominationSchema, ChainInfoModel, ChainInfoSchema } from './schema';
 
 export class DatabaseHandler {
@@ -26,9 +26,9 @@ export class DatabaseHandler {
       useUnifiedTopology: true,
       poolSize: 10
     });
-    this.ValidatorModel = db.model('Validator_' + dbName, ValidatorSchema);
-    this.NominationModel = db.model('Nomination_' + dbName, NominationSchema);
-    this.ChainInfoModel = db.model('ChainInfo_' + dbName, ChainInfoSchema);
+    this.ValidatorModel = db.model('Validator_' + dbName, ValidatorSchema, 'validator');
+    this.NominationModel = db.model('Nomination_' + dbName, NominationSchema, 'nomination');
+    this.ChainInfoModel = db.model('ChainInfo_' + dbName, ChainInfoSchema, 'chainInfo');
     
     db.on('error', console.error.bind(console, 'connection error:'));
     db.once('open', async function() {
@@ -37,9 +37,9 @@ export class DatabaseHandler {
   }
 
   __initSchema() {
-    this.chainInfoSchema_ = new Schema(ChainInfoSchema, { collection: 'chainInfo' });
-    this.validatorSchema_ = new Schema(ValidatorSchema, { collection: 'validator' });
-    this.nominationSchema_ = new Schema(NominationDbSchema, { collection: 'nomination' });
+    this.chainInfoSchema_ = new Schema(ChainInfoSchema);
+    this.validatorSchema_ = new Schema(ValidatorSchema);
+    this.nominationSchema_ = new Schema(NominationSchema);
   }
 
   async getValidatorStatusOfEra(id: string, era: number) {
@@ -133,17 +133,15 @@ export class DatabaseHandler {
     }
     const { validator, objectData } = await this.getValidatorStatus(id);
     if(validator === undefined || validator.length === 0) {
-      const vData = new ValidatorDbSchema(id, data.identity, new StatusChange(0));
-      console.log(vData);
+      const vData = new ValidatorDbSchema(id, new IdentityDbSchema(data.identity.getIdentity()), new StatusChange(0));
       await this.ValidatorModel?.create(vData).catch((err: any) => console.error(err));
       const nData = new NominationDbSchema(data.era, data.exposure, data.nominators, data.commission, data.apy, id);
-      console.log(nData);
-      await this.NominationModel?.create(nData).catch((err: any) => console.error(err));
+      await this.NominationModel?.create(nData.exportString()).catch((err: any) => console.error(err));
     } else {
       await this.ValidatorModel?.findOneAndUpdate({
         id: id
       }, {
-        identity: data.identity,
+        identity: { display: data.identity.getIdentity()}, 
         'statusChange.commission': data.commissionChanged
       }).exec();
       const nomination = await this.NominationModel?.findOne({era: data.era, validator: id}).exec();
@@ -151,8 +149,8 @@ export class DatabaseHandler {
         await this.NominationModel?.findOneAndUpdate({
           era: data.era, validator: id,
         }, {
-          exposure: data.exposure,
-          nominators: data.nominators,
+          exposure: data.exposure.exportString(),
+          nominators: data.nominators.map((n: any)=>{return n.exportString();}),
           commission: data.commission,
           apy: data.apy,
         }, ).exec();
@@ -160,8 +158,8 @@ export class DatabaseHandler {
       }
       await this.NominationModel?.create({
         era: data.era,
-        exposure: data.exposure,
-        nominators: data.nominators,
+        exposure: data.exposure.exportString(),
+        nominators: data.nominators.map((n: any)=>{return n.exportString();}),
         commission: data.commission,
         apy: data.apy,
         validator: id

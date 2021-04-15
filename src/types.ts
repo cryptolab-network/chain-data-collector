@@ -1,6 +1,7 @@
-export { Identity, BalancedNominator, Balance, Validator, Exposure, ValidatorDbSchema, NominationDbSchema, StatusChange };
+export { Identity, BalancedNominator, Balance, Validator, Exposure, ValidatorDbSchema, NominationDbSchema, StatusChange, IdentityDbSchema };
 import type { AccountId, EraIndex, Exposure as PolkadotExposure, Nominations,
   RewardDestination, StakingLedger as PolkadotStakingLedger, ValidatorPrefs as PolkadotValidatorPrefs } from '@polkadot/types/interfaces';
+const divide = require('divide-bigint');
 
 class Identity {
   address: string
@@ -12,20 +13,31 @@ class Identity {
   }
 
   getIdentity() {
-    if(this.display === undefined) {
+    if(this.display === undefined || this.display === null) {
       return this.address;
     } else {
-      return this.display + '/' + this.displayParent;
+      if(this.displayParent !== undefined && this.displayParent !== null) {
+        return this.displayParent + '/' + this.display;
+      } else {
+        return this.display;
+      }
     }
   }
 }
 
 class Balance {
   freeBalance: bigint
-  lockedBalance:bigint
+  lockedBalance: bigint
   constructor(free: bigint, locked: bigint) {
     this.freeBalance = free;
     this.lockedBalance = locked;
+  }
+
+  exportString() {
+    return {
+      freeBalance: __toHexString(this.freeBalance as bigint),
+      lockedBalance: __toHexString(this.lockedBalance as bigint)
+    }
   }
 }
 
@@ -37,6 +49,14 @@ class BalancedNominator {
     this.address = address;
     this.targets = targets;
     this.balance = balance;
+  }
+
+  exportString() {
+    return {
+      address: this.address,
+      targets: this.targets,
+      balance: this.balance.exportString(),
+    };
   }
 }
 
@@ -74,10 +94,10 @@ class Validator {
   //       v.apy = 0;
   //     }
   apy(decimals: bigint, eraReward: bigint, validatorCount: number) {
-    const active = this.exposure.total / decimals;
+    const active = divide(this.exposure.total, decimals);
     const commission = this.prefs.commission / 10000000;
-    const avgRewardOfValidator = ((eraReward / decimals) / BigInt(validatorCount));
-    const apy = active === BigInt(0) ? 0 : (Number(avgRewardOfValidator) * (1 - commission / 100) * 365) / Number(active) * 4;
+    const avgRewardOfValidator = divide(eraReward, decimals) / validatorCount;
+    const apy = active === 0 ? 0 : (avgRewardOfValidator * (1 - commission / 100) * 365) / active * 4;
     return apy;
   }
 }
@@ -97,6 +117,16 @@ class Exposure {
     this.own = own;
     this.others = others;
   }
+
+  exportString() {
+    return {
+      total: __toHexString(this.total as bigint),
+      own: __toHexString(this.own as bigint),
+      others: this.others.map((v)=>{
+        return v.exportString();
+      })
+    }
+  }
 }
 
 class IndividualExposure {
@@ -105,6 +135,13 @@ class IndividualExposure {
   constructor(who: string, value: string | bigint) {
     this.who = who;
     this.value = value;
+  }
+
+  exportString() {
+    return {
+      who: this.who,
+      value: __toHexString(this.value as bigint),
+    }
   }
 }
 
@@ -193,4 +230,31 @@ class NominationDbSchema {
     this.apy = apy;
     this.validator = validator;
   }
+
+  exportString() {
+    console.log('exposure=' + this.exposure.exportString());
+    console.log('nominators=' + this.nominators.map((n)=>{
+      return n.exportString();
+    }));
+    return {
+      era: this.era,
+      exposure: this.exposure.exportString(),
+      nominators: this.nominators.map((n)=>{
+        return n.exportString();
+      }),
+      commission: this.commission,
+      apy: this.apy,
+      validator: this.validator,
+    };
+  }
+}
+
+
+const __toHexString = (v: bigint) => {
+  let hex = v.toString(16);
+  if(hex.length % 2 === 1) {
+    hex = '0' + hex;
+  }
+  hex = '0x' + hex;
+  return hex;
 }
