@@ -10,6 +10,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const chainData_1 = require("./src/chainData");
+const cacheData_1 = require("./src/cacheData");
 const database_1 = require("./src/db/database");
 const scheduler_1 = require("./src/scheduler");
 const keys = require('./config/keys');
@@ -17,9 +18,10 @@ const keys = require('./config/keys');
     try {
         const chainData = new chainData_1.ChainData('wss://kusama-rpc.polkadot.io');
         yield chainData.connect();
+        const cacheData = new cacheData_1.Cache('./cache');
         const db = new database_1.DatabaseHandler();
         yield db.connect(keys.MONGO_ACCOUNT, keys.MONGO_PASSWORD, keys.MONGO_URL, keys.MONGO_PORT, keys.MONGO_DBNAME);
-        const scheduler = new scheduler_1.Scheduler(chainData, db);
+        const scheduler = new scheduler_1.Scheduler(chainData, db, cacheData);
         scheduler.start();
     }
     catch (err) {

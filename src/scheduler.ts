@@ -1,18 +1,25 @@
 import { ChainData } from "./chainData";
+import { Cache } from './cacheData';
+import { OneKvSummary } from './oneKvData';
 import { DatabaseHandler } from "./db/database";
 import { CronJob } from 'cron';
 import { BalancedNominator, Validator } from "./types";
+import { OneKvHandler } from "./oneKvData";
 
 const KUSAMA_DECIMAL = 1000000000000;
 
 export class Scheduler {
   chainData: ChainData
+  cacheData: Cache
   db: DatabaseHandler
   isCaching: boolean
-  constructor(chainData: ChainData, db: DatabaseHandler) {
+  oneKvHandler: OneKvHandler
+  constructor(chainData: ChainData, db: DatabaseHandler, cacheData: Cache) {
     this.chainData = chainData;
+    this.cacheData = cacheData;
     this.db = db;
     this.isCaching = false;
+    this.oneKvHandler= new OneKvHandler(this.chainData);
   }
 
   start() {
@@ -25,6 +32,8 @@ export class Scheduler {
         console.log('Kusama scheduler starts');
         await this.__updateActiveEra();
         // const validators = await this.chainData.getValidators();
+        const oneKvSummary = await this.oneKvHandler.getValidValidators();
+        this.cacheData.update<OneKvSummary>('onekv', oneKvSummary);
         const activeEra = await this.chainData.getActiveEraIndex();
         const eraReward = await this.chainData.getEraTotalReward(activeEra - 1);
         console.log('era reward: ' + eraReward);

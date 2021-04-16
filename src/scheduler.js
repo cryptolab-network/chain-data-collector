@@ -11,12 +11,15 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Scheduler = void 0;
 const cron_1 = require("cron");
+const oneKvData_1 = require("./oneKvData");
 const KUSAMA_DECIMAL = 1000000000000;
 class Scheduler {
-    constructor(chainData, db) {
+    constructor(chainData, db, cacheData) {
         this.chainData = chainData;
+        this.cacheData = cacheData;
         this.db = db;
         this.isCaching = false;
+        this.oneKvHandler = new oneKvData_1.OneKvHandler(this.chainData);
     }
     start() {
         const job = new cron_1.CronJob('30 */1 * * *', () => __awaiter(this, void 0, void 0, function* () {
@@ -28,6 +31,8 @@ class Scheduler {
                 console.log('Kusama scheduler starts');
                 yield this.__updateActiveEra();
                 // const validators = await this.chainData.getValidators();
+                const oneKvSummary = yield this.oneKvHandler.getValidValidators();
+                this.cacheData.update('onekv', oneKvSummary);
                 const activeEra = yield this.chainData.getActiveEraIndex();
                 const eraReward = yield this.chainData.getEraTotalReward(activeEra - 1);
                 console.log('era reward: ' + eraReward);
