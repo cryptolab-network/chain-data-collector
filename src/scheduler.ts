@@ -106,6 +106,9 @@ export class Scheduler {
         commissionChanged = 0;
       }
     }
+    if(commissionChanged !== 0) {
+      console.log('commission changed:' + commissionChanged  + ' from ' + latestCommission + " to " + validator.prefs.commissionPct());
+    }
     const apy = validator.apy(BigInt(KUSAMA_DECIMAL), BigInt(eraReward), validatorCount);
     const data = {
       era: era,
@@ -116,9 +119,9 @@ export class Scheduler {
       nominators: validator.nominators,
       commissionChanged: commissionChanged,
     };
-    await this.db.saveValidatorUnclaimedEras(validator.accountId, unclaimedEras?.map((era)=>{
+    this.db.saveValidatorUnclaimedEras(validator.accountId, unclaimedEras?.map((era)=>{
       return era.era.toNumber();
     })!);
-    await this.db.saveValidatorNominationData(validator.accountId, data);
+    this.db.saveValidatorNominationData(validator.accountId, data);
   }
 }

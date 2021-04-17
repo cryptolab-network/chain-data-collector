@@ -131,6 +131,7 @@ class ChainData {
       this.api?.query.session.validators(),
       this.api?.derive.staking.waitingInfo({
         withLedger: true,
+        withPrefs: true,
       }),
       this.api?.query.staking.nominators.entries(),
     ])

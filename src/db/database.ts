@@ -150,14 +150,17 @@ export class DatabaseHandler {
       }, {useFindAndModify: false}).exec();
       const nomination = await this.NominationModel?.findOne({era: data.era, validator: id}).exec();
       if(nomination !== null) { // the data of this era exist, dont add a new one
-        await this.NominationModel?.findOneAndUpdate({
+        const result = await this.NominationModel?.findOneAndUpdate({
           era: data.era, validator: id,
         }, {
+          era: data.era,
+          validator: id,
           exposure: data.exposure.exportString(),
           nominators: data.nominators.map((n: any)=>{return n.exportString();}),
           commission: data.commission,
           apy: data.apy,
-        }, {useFindAndModify: false}).exec();
+        }, {useFindAndModify: false}).exec().catch((err)=>{console.log(err)});
+        console.log(result);
         return true;
       }
       await this.NominationModel?.create({

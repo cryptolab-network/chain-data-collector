@@ -103,9 +103,9 @@ export class Scheduler {
       nominators: validator.nominators,
       commissionChanged: commissionChanged,
     };
-    await this.db.saveValidatorUnclaimedEras(validator.accountId, unclaimedEras?.map((era)=>{
+    this.db.saveValidatorUnclaimedEras(validator.accountId, unclaimedEras?.map((era)=>{
       return era.era.toNumber();
     })!);
-    await this.db.saveValidatorNominationData(validator.accountId, data);
+    this.db.saveValidatorNominationData(validator.accountId, data);
   }
 }
