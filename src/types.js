@@ -58,7 +58,7 @@ class Validator {
             others.push(new IndividualExposure(other.who.toString(), other.value.toBigInt()));
         });
         this.exposure = new Exposure(exposure.total.toBigInt(), exposure.own.toBigInt(), others);
-        this.stakingLedger = new StakingLedger(stakingLedger.stash.toString(), stakingLedger.total.toBigInt(), stakingLedger.active.toBigInt(), stakingLedger.claimedRewards.length);
+        this.stakingLedger = new StakingLedger(stakingLedger.stash.toString(), stakingLedger.total.toBigInt(), stakingLedger.active.toBigInt(), stakingLedger.claimedRewards);
         this.prefs = new ValidatorPrefs(prefs.commission.toNumber(), prefs.blocked.isTrue);
         this.active = true;
         this.nominators = [];
@@ -123,18 +123,18 @@ class IndividualExposure {
     }
 }
 class StakingLedger {
-    constructor(stashId, total, active, claimedRewardCount) {
+    constructor(stashId, total, active, claimedRewards) {
         this.stashId = stashId;
         this.total = total;
         this.active = active;
-        this.claimedRewardCount = claimedRewardCount;
+        this.claimedRewards = claimedRewards;
     }
     exportString() {
         return {
             stashId: this.stashId,
             total: this.total.toString(),
             active: this.active.toString(),
-            claimedRewardCount: this.claimedRewardCount,
+            claimedRewardCount: this.claimedRewards.length,
         };
     }
 }
@@ -207,6 +207,8 @@ class NominationDbSchema {
     }
 }
 exports.NominationDbSchema = NominationDbSchema;
+class EraIndex {
+}
 const __toHexString = (v) => {
     let hex = v.toString(16);
     if (hex.length % 2 === 1) {

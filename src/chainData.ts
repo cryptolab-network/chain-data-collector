@@ -87,6 +87,11 @@ class ChainData {
     const totalReward = await this.api?.query.staking.erasValidatorReward(era);
     return totalReward?.toString();
   }
+
+  getStakerPoints = async (stash: string) => {
+    const stakerPoints = await this.api?.derive.staking.stakerPoints(stash);
+    return stakerPoints;
+  }
   
   getValidators = async () => {
     // retrive active validators
@@ -124,10 +129,11 @@ class ChainData {
       nominators,
     ] = await Promise.all([
       this.api?.query.session.validators(),
-      this.api?.derive.staking.waitingInfo(),
+      this.api?.derive.staking.waitingInfo({
+        withLedger: true,
+      }),
       this.api?.query.staking.nominators.entries(),
     ])
-
     if(validatorAddresses === undefined || waitingInfo === undefined || nominators === undefined) {
       throw new Error('Failed to get chain data');
     }
@@ -165,8 +171,8 @@ class ChainData {
       }
     ));
     intentions = await Promise.all(
-      waitingInfo.info.map((intention) => 
-        this.api?.derive.accounts.info(intention.accountId).then(({ identity }) => {
+      waitingInfo.info.map((intention) => {
+        return this.api?.derive.accounts.info(intention.accountId).then(({ identity }) => {
           const _identity = new Identity(intention.accountId.toString());
           _identity.display = identity.display;
           _identity.displayParent = identity.displayParent;
@@ -177,7 +183,7 @@ class ChainData {
           validator.activeNominators = 0;
           return validator;
         })
-      )
+      })
     )
 
     validators = validators.concat(intentions);

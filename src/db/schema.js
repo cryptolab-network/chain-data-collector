@@ -1,7 +1,12 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ChainInfoModel = exports.ChainInfoSchema = exports.NominationModel = exports.NominationSchema = exports.ValidatorSchema = exports.ValidatorModel = void 0;
+exports.UnclaimedEraInfoSchema = exports.ChainInfoModel = exports.ChainInfoSchema = exports.NominationModel = exports.NominationSchema = exports.ValidatorSchema = exports.ValidatorModel = void 0;
 const mongoose_1 = require("mongoose");
+const UnclaimedEraInfoSchema = new mongoose_1.Schema({
+    eras: [Number],
+    validator: String,
+});
+exports.UnclaimedEraInfoSchema = UnclaimedEraInfoSchema;
 ;
 const ChainInfoSchema = new mongoose_1.Schema({
     activeEra: Number,

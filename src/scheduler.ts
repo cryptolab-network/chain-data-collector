@@ -80,6 +80,13 @@ export class Scheduler {
 
   private async makeValidatorInfoOfEra(validator: Validator, eraReward: string,
     era: number, validatorCount: number) {
+
+    const stakerPoint = await this.chainData.getStakerPoints(validator.accountId);
+    const activeEras = stakerPoint?.filter((point)=>{
+      return point.points.toNumber() > 0;
+    });
+    const unclaimedEras = activeEras?.filter((point) => !validator.stakingLedger.claimedRewards.includes(point.era));
+
     const lastEraInfo = await this.db.getValidatorStatusOfEra(validator?.accountId!, era - 1);
     let latestCommission = 0;
     if(lastEraInfo !== undefined) {
@@ -91,12 +98,9 @@ export class Scheduler {
     }
     let commissionChanged = 0;
     if(latestCommission != validator.prefs.commissionPct()) {
-      console.log(latestCommission, validator.prefs.commissionPct());
       if(validator.prefs.commissionPct() > latestCommission) {
-        console.log('commission up');
         commissionChanged = 1;
       } else if(validator.prefs.commissionPct() < latestCommission) {
-        console.log('commission down');
         commissionChanged = 2;
       } else {
         commissionChanged = 0;
@@ -112,6 +116,9 @@ export class Scheduler {
       nominators: validator.nominators,
       commissionChanged: commissionChanged,
     };
+    await this.db.saveValidatorUnclaimedEras(validator.accountId, unclaimedEras?.map((era)=>{
+      return era.era.toNumber();
+    })!);
     await this.db.saveValidatorNominationData(validator.accountId, data);
   }
 }

@@ -33,6 +33,7 @@ class DatabaseHandler {
         this.ValidatorModel = db.model('Validator_' + dbName, schema_1.ValidatorSchema, 'validator');
         this.NominationModel = db.model('Nomination_' + dbName, schema_1.NominationSchema, 'nomination');
         this.ChainInfoModel = db.model('ChainInfo_' + dbName, schema_1.ChainInfoSchema, 'chainInfo');
+        this.UnclaimedEraInfoModel = db.model('UnclaimedEraInfo_' + dbName, schema_1.UnclaimedEraInfoSchema, 'unclaimedEraInfo');
         db.on('error', console.error.bind(console, 'connection error:'));
         db.once('open', function () {
             return __awaiter(this, void 0, void 0, function* () {
@@ -44,6 +45,7 @@ class DatabaseHandler {
         this.chainInfoSchema_ = new mongoose_1.Schema(schema_1.ChainInfoSchema);
         this.validatorSchema_ = new mongoose_1.Schema(schema_1.ValidatorSchema);
         this.nominationSchema_ = new mongoose_1.Schema(schema_1.NominationSchema);
+        this.unclamedEraInfoSchema_ = new mongoose_1.Schema(schema_1.UnclaimedEraInfoSchema);
     }
     getValidatorStatusOfEra(id, era) {
         var _a, _b;
@@ -148,7 +150,7 @@ class DatabaseHandler {
                 }, {
                     identity: { display: data.identity.getIdentity() },
                     'statusChange.commission': data.commissionChanged
-                }).exec());
+                }, { useFindAndModify: false }).exec());
                 const nomination = yield ((_d = this.NominationModel) === null || _d === void 0 ? void 0 : _d.findOne({ era: data.era, validator: id }).exec());
                 if (nomination !== null) { // the data of this era exist, dont add a new one
                     yield ((_e = this.NominationModel) === null || _e === void 0 ? void 0 : _e.findOneAndUpdate({
@@ -158,7 +160,7 @@ class DatabaseHandler {
                         nominators: data.nominators.map((n) => { return n.exportString(); }),
                         commission: data.commission,
                         apy: data.apy,
-                    }).exec());
+                    }, { useFindAndModify: false }).exec());
                     return true;
                 }
                 yield ((_f = this.NominationModel) === null || _f === void 0 ? void 0 : _f.create({
@@ -180,7 +182,17 @@ class DatabaseHandler {
             const result = yield ((_a = this.ChainInfoModel) === null || _a === void 0 ? void 0 : _a.updateOne({}, { $set: { activeEra: era } }, { upsert: true }).exec().catch((err) => {
                 console.error(err);
             }));
-            console.log(result);
+        });
+    }
+    saveValidatorUnclaimedEras(id, eras) {
+        var _a;
+        return __awaiter(this, void 0, void 0, function* () {
+            const result = yield ((_a = this.UnclaimedEraInfoModel) === null || _a === void 0 ? void 0 : _a.updateOne({ validator: id }, {
+                eras: eras,
+                validator: id,
+            }, { upsert: true }).exec().catch((err) => {
+                console.error(err);
+            }));
         });
     }
     __validateNominationInfo(id, data) {

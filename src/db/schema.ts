@@ -1,6 +1,17 @@
 import { model, Schema, Model, Document, Decimal128 } from 'mongoose';
 import { Identity, StatusChange } from '../types';
-export { ValidatorModel, ValidatorSchema, NominationSchema, NominationModel, ChainInfoSchema, ChainInfoModel };
+export { ValidatorModel, ValidatorSchema, NominationSchema,
+  NominationModel, ChainInfoSchema, ChainInfoModel, UnclaimedEraInfoSchema, IUnclaimedEraInfo };
+
+interface IUnclaimedEraInfo extends Document {
+  eras: number[];
+  validator: string;
+}
+
+const UnclaimedEraInfoSchema: Schema = new Schema({
+  eras: [Number],
+  validator: String,
+});
 
 interface IChainInfo extends Document {
   activeEra: number;

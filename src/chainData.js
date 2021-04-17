@@ -82,6 +82,11 @@ class ChainData {
             const totalReward = yield ((_f = this.api) === null || _f === void 0 ? void 0 : _f.query.staking.erasValidatorReward(era));
             return totalReward === null || totalReward === void 0 ? void 0 : totalReward.toString();
         });
+        this.getStakerPoints = (stash) => __awaiter(this, void 0, void 0, function* () {
+            var _g;
+            const stakerPoints = yield ((_g = this.api) === null || _g === void 0 ? void 0 : _g.derive.staking.stakerPoints(stash));
+            return stakerPoints;
+        });
         this.getValidators = () => __awaiter(this, void 0, void 0, function* () {
             // retrive active validators
             try {
@@ -106,15 +111,17 @@ class ChainData {
             }
         });
         this.getValidatorWaitingInfo = () => __awaiter(this, void 0, void 0, function* () {
-            var _g, _h, _j;
+            var _h, _j, _k;
             const activeEra = yield this.getActiveEraIndex();
             const blockHash = yield this.findEraBlockHash(activeEra);
             let validators = [];
             let intentions = [];
             let [validatorAddresses, waitingInfo, nominators,] = yield Promise.all([
-                (_g = this.api) === null || _g === void 0 ? void 0 : _g.query.session.validators(),
-                (_h = this.api) === null || _h === void 0 ? void 0 : _h.derive.staking.waitingInfo(),
-                (_j = this.api) === null || _j === void 0 ? void 0 : _j.query.staking.nominators.entries(),
+                (_h = this.api) === null || _h === void 0 ? void 0 : _h.query.session.validators(),
+                (_j = this.api) === null || _j === void 0 ? void 0 : _j.derive.staking.waitingInfo({
+                    withLedger: true,
+                }),
+                (_k = this.api) === null || _k === void 0 ? void 0 : _k.query.staking.nominators.entries(),
             ]);
             if (validatorAddresses === undefined || waitingInfo === undefined || nominators === undefined) {
                 throw new Error('Failed to get chain data');

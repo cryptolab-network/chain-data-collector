@@ -1,5 +1,5 @@
 export { Identity, BalancedNominator, Balance, Validator, Exposure, ValidatorDbSchema, NominationDbSchema, StatusChange, IdentityDbSchema };
-import type { AccountId, EraIndex, Exposure as PolkadotExposure, Nominations,
+import type { AccountId, EraIndex as PolkadotEraIndex, Exposure as PolkadotExposure, Nominations,
   RewardDestination, StakingLedger as PolkadotStakingLedger, ValidatorPrefs as PolkadotValidatorPrefs } from '@polkadot/types/interfaces';
 import { deprecationHandler } from 'moment';
 const divide = require('divide-bigint');
@@ -80,7 +80,7 @@ class Validator {
     })
     this.exposure = new Exposure(exposure.total.toBigInt(), exposure.own.toBigInt(), others);
     this.stakingLedger = new StakingLedger(stakingLedger.stash.toString(),
-      stakingLedger.total.toBigInt(), stakingLedger.active.toBigInt(), stakingLedger.claimedRewards.length);
+      stakingLedger.total.toBigInt(), stakingLedger.active.toBigInt(), stakingLedger.claimedRewards);
     this.prefs = new ValidatorPrefs(prefs.commission.toNumber(), prefs.blocked.isTrue);
     this.active = true;
     this.nominators = [];
@@ -158,12 +158,12 @@ class StakingLedger {
   stashId: string
   total: string | bigint
   active: string | bigint
-  claimedRewardCount: number
-  constructor(stashId: string, total: string | bigint, active: string | bigint, claimedRewardCount: number) {
+  claimedRewards: PolkadotEraIndex[]
+  constructor(stashId: string, total: string | bigint, active: string | bigint, claimedRewards: PolkadotEraIndex[]) {
     this.stashId = stashId;
     this.total = total;
     this.active = active;
-    this.claimedRewardCount = claimedRewardCount;
+    this.claimedRewards =  claimedRewards;
   }
 
   exportString() {
@@ -171,7 +171,7 @@ class StakingLedger {
       stashId: this.stashId,
       total: this.total.toString(),
       active: this.active.toString(),
-      claimedRewardCount: this.claimedRewardCount,
+      claimedRewardCount: this.claimedRewards.length,
     }
   }
 }

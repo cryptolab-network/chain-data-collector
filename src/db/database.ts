@@ -1,14 +1,17 @@
 import { Mongoose, Schema, Model, Document, set } from 'mongoose';
 import { Identity, ValidatorDbSchema, NominationDbSchema, StatusChange, IdentityDbSchema } from '../types';
-import { ValidatorSchema, ValidatorModel, NominationModel, NominationSchema, ChainInfoModel, ChainInfoSchema } from './schema';
+import { ValidatorSchema, ValidatorModel, NominationModel, NominationSchema,
+  ChainInfoModel, ChainInfoSchema, IUnclaimedEraInfo, UnclaimedEraInfoSchema } from './schema';
 
 export class DatabaseHandler {
   validatorSchema_?: Schema
   nominationSchema_?: Schema
   chainInfoSchema_?: Schema
+  unclamedEraInfoSchema_?: Schema
   ValidatorModel?: Model<Document<any, {}>, {}>
   NominationModel?: Model<Document<any, {}>, {}>
   ChainInfoModel?: Model<Document<any, {}>, {}>
+  UnclaimedEraInfoModel?: Model<Document<any, {}>, {}>
   constructor() {
     this.__initSchema();
     set('debug', true);
@@ -29,7 +32,7 @@ export class DatabaseHandler {
     this.ValidatorModel = db.model('Validator_' + dbName, ValidatorSchema, 'validator');
     this.NominationModel = db.model('Nomination_' + dbName, NominationSchema, 'nomination');
     this.ChainInfoModel = db.model('ChainInfo_' + dbName, ChainInfoSchema, 'chainInfo');
-    
+    this.UnclaimedEraInfoModel = db.model('UnclaimedEraInfo_' + dbName, UnclaimedEraInfoSchema, 'unclaimedEraInfo');
     db.on('error', console.error.bind(console, 'connection error:'));
     db.once('open', async function() {
       console.log('DB connected');
@@ -40,6 +43,7 @@ export class DatabaseHandler {
     this.chainInfoSchema_ = new Schema(ChainInfoSchema);
     this.validatorSchema_ = new Schema(ValidatorSchema);
     this.nominationSchema_ = new Schema(NominationSchema);
+    this.unclamedEraInfoSchema_ = new Schema(UnclaimedEraInfoSchema);
   }
 
   async getValidatorStatusOfEra(id: string, era: number) {
@@ -143,7 +147,7 @@ export class DatabaseHandler {
       }, {
         identity: { display: data.identity.getIdentity()}, 
         'statusChange.commission': data.commissionChanged
-      }).exec();
+      }, {useFindAndModify: false}).exec();
       const nomination = await this.NominationModel?.findOne({era: data.era, validator: id}).exec();
       if(nomination !== null) { // the data of this era exist, dont add a new one
         await this.NominationModel?.findOneAndUpdate({
@@ -153,7 +157,7 @@ export class DatabaseHandler {
           nominators: data.nominators.map((n: any)=>{return n.exportString();}),
           commission: data.commission,
           apy: data.apy,
-        }, ).exec();
+        }, {useFindAndModify: false}).exec();
         return true;
       }
       await this.NominationModel?.create({
@@ -173,7 +177,15 @@ export class DatabaseHandler {
     const result = await this.ChainInfoModel?.updateOne({}, {$set: {activeEra: era}}, {upsert: true}).exec().catch((err)=>{
       console.error(err);
     });
-    console.log(result);
+  }
+
+  async saveValidatorUnclaimedEras(id: string, eras: number[]) {
+    const result = await this.UnclaimedEraInfoModel?.updateOne({validator: id}, {
+      eras: eras,
+      validator: id,
+    }, {upsert: true}).exec().catch((err)=>{
+      console.error(err);
+    });
   }
 
   __validateNominationInfo(id: string, data: any) {

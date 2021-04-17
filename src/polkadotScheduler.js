@@ -37,7 +37,7 @@ class Scheduler {
                     const validator = validatorWaitingInfo.validators[i];
                     if (validator !== undefined && eraReward !== undefined) {
                         const eraValidatorCount = validatorWaitingInfo.validators.length;
-                        this.makeValidatorInfoOfEra(validator, eraReward, activeEra, 900);
+                        this.makeValidatorInfoOfEra(validator, eraReward, activeEra, 297);
                     }
                 }
                 this.cacheData.update('validDetailAll', {
@@ -69,6 +69,25 @@ class Scheduler {
     }
     makeValidatorInfoOfEra(validator, eraReward, era, validatorCount) {
         return __awaiter(this, void 0, void 0, function* () {
+            const stakerPoint = yield this.chainData.getStakerPoints(validator.accountId);
+            const activeEras = stakerPoint === null || stakerPoint === void 0 ? void 0 : stakerPoint.filter((point) => {
+                return point.points.toNumber() > 0;
+            });
+            // console.log('---------------');
+            // console.log(validator.accountId);
+            // console.log('stakerpoints: ' + stakerPoint?.map((point)=>{
+            //   return point.era.toNumber();
+            // }));
+            // console.log('active eras: ' + activeEras?.map((era)=>{
+            //   return era.era.toNumber();
+            // }));
+            // console.log('claimed eras: ' + validator.stakingLedger.claimedRewards.map((era)=>{
+            //   return era.toNumber();
+            // }));
+            const unclaimedEras = activeEras === null || activeEras === void 0 ? void 0 : activeEras.filter((point) => !validator.stakingLedger.claimedRewards.includes(point.era));
+            // console.log('unclaimed eras: ' + unclaimedEras?.map((era)=>{
+            //   return era.era.toNumber();
+            // }));
             const lastEraInfo = yield this.db.getValidatorStatusOfEra(validator === null || validator === void 0 ? void 0 : validator.accountId, era - 1);
             let latestCommission = 0;
             if (lastEraInfo !== undefined) {
@@ -80,7 +99,7 @@ class Scheduler {
             }
             let commissionChanged = 0;
             if (latestCommission != validator.prefs.commissionPct()) {
-                console.log(latestCommission, validator.prefs.commissionPct());
+                console.log(latestCommission, validator.prefs.commission, validator.prefs.commissionPct());
                 if (validator.prefs.commissionPct() > latestCommission) {
                     console.log('commission up');
                     commissionChanged = 1;
@@ -103,6 +122,9 @@ class Scheduler {
                 nominators: validator.nominators,
                 commissionChanged: commissionChanged,
             };
+            yield this.db.saveValidatorUnclaimedEras(validator.accountId, unclaimedEras === null || unclaimedEras === void 0 ? void 0 : unclaimedEras.map((era) => {
+                return era.era.toNumber();
+            }));
             yield this.db.saveValidatorNominationData(validator.accountId, data);
         });
     }
