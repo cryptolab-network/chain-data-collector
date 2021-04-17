@@ -6,30 +6,28 @@ import { CronJob } from 'cron';
 import { BalancedNominator, Validator } from "./types";
 import { OneKvHandler } from "./oneKvData";
 
-const KUSAMA_DECIMAL = 1000000000000;
+const POLKADOT_DECIMAL = 10000000000;
 
 export class Scheduler {
   chainData: ChainData
   cacheData: Cache
   db: DatabaseHandler
   isCaching: boolean
-  oneKvHandler: OneKvHandler
   constructor(chainData: ChainData, db: DatabaseHandler, cacheData: Cache) {
     this.chainData = chainData;
     this.cacheData = cacheData;
     this.db = db;
     this.isCaching = false;
-    this.oneKvHandler= new OneKvHandler(this.chainData, this.cacheData, this.db);
   }
 
   start() {
-    const job = new CronJob('30 */1 * * *', async () => {
+    const job = new CronJob('35 */1 * * *', async () => {
       if(this.isCaching) {
         return;
       }
       this.isCaching = true;
       try {
-        console.log('Kusama scheduler starts');
+        console.log('Polkadot scheduler starts');
         await this.updateActiveEra();
         const activeEra = await this.chainData.getActiveEraIndex();
         const eraReward = await this.chainData.getEraTotalReward(activeEra - 1);
@@ -54,9 +52,7 @@ export class Scheduler {
         this.cacheData.update('nominators', nominators.map((n)=>{
           return n?.exportString();
         }));
-        console.log('length ' +　validatorWaitingInfo.validators.length);
-        await this.cacheOneKVInfo(validatorWaitingInfo.validators);
-        console.log('Kusama scheduler ends');
+        console.log('Polkadot scheduler ends');
       } catch (err){
         console.log(err);
         console.log('schedule retrieving data error');
@@ -64,13 +60,6 @@ export class Scheduler {
       this.isCaching = false;
     }, null, true, 'America/Los_Angeles', null, true);
     job.start();
-  }
-
-  private async cacheOneKVInfo(validators: (Validator | undefined)[]) {
-    const oneKvSummary = await this.oneKvHandler.getValidValidators(validators);
-    this.cacheData.update<any>('onekv', oneKvSummary.toJSON());
-    const oneKvNominators = await this.oneKvHandler.getOneKvNominators();
-    this.cacheData.update<OneKvNominatorSummary>('oneKvNominators', oneKvNominators);
   }
 
   private async updateActiveEra() {
@@ -102,7 +91,7 @@ export class Scheduler {
         commissionChanged = 0;
       }
     }
-    const apy = validator.apy(BigInt(KUSAMA_DECIMAL), BigInt(eraReward), validatorCount);
+    const apy = validator.apy(BigInt(POLKADOT_DECIMAL), BigInt(eraReward), validatorCount);
     const data = {
       era: era,
       exposure: validator.exposure,

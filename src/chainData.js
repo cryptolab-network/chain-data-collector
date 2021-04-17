@@ -140,6 +140,8 @@ class ChainData {
                             _identity.display = identity.display;
                             _identity.displayParent = identity.displayParent;
                             validator.identity = _identity;
+                            validator.totalNominators = 0;
+                            validator.activeNominators = validator.exposure.others.length;
                             return validator;
                         });
                     }
@@ -154,6 +156,8 @@ class ChainData {
                     _identity.displayParent = identity.displayParent;
                     const validator = new types_1.Validator(intention.accountId.toString(), intention.exposure, intention.stakingLedger, intention.validatorPrefs);
                     validator.identity = _identity;
+                    validator.totalNominators = 0;
+                    validator.activeNominators = 0;
                     return validator;
                 });
             }));
@@ -175,6 +179,7 @@ class ChainData {
                     validators.forEach(validator => {
                         if (target === (validator === null || validator === void 0 ? void 0 : validator.accountId)) {
                             validator.nominators.push(nominator);
+                            validator.totalNominators++;
                         }
                     });
                 });
@@ -185,6 +190,28 @@ class ChainData {
             };
         });
         this.url = url;
+    }
+    getNominators() {
+        var _a;
+        return __awaiter(this, void 0, void 0, function* () {
+            const nominators = yield ((_a = this.api) === null || _a === void 0 ? void 0 : _a.query.staking.nominators.entries());
+            if (nominators === undefined) {
+                throw new Error('Failed to get nominator data from chain');
+            }
+            let balancedNominators = yield Promise.all(nominators.map((nominator) => {
+                var _a, _b;
+                return (_a = this.api) === null || _a === void 0 ? void 0 : _a.derive.balances.all((_b = nominator[0].toHuman()) === null || _b === void 0 ? void 0 : _b.toString()).then((balance) => {
+                    var _a;
+                    const _balance = new types_1.Balance(balance.freeBalance.toBigInt(), balance.lockedBalance.toBigInt());
+                    const targets = [];
+                    nominator[1].unwrap().targets.forEach((target) => {
+                        targets.push(target.toString());
+                    });
+                    return new types_1.BalancedNominator((_a = nominator[0].toHuman()) === null || _a === void 0 ? void 0 : _a.toString(), targets, _balance);
+                });
+            }));
+            return balancedNominators;
+        });
     }
 }
 exports.ChainData = ChainData;

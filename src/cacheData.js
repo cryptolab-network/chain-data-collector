@@ -27,7 +27,7 @@ class Cache {
             return new Promise((resolve, reject) => {
                 const filePath = path_1.default.join(this.folder, type + '.json');
                 fs_1.default.readFile(filePath, 'utf8', (err, data) => {
-                    if (err !== undefined) {
+                    if (err !== null) {
                         reject(err);
                     }
                     else {
@@ -42,7 +42,7 @@ class Cache {
             return new Promise((resolve, reject) => {
                 const filePath = path_1.default.join(this.folder, type + '.json');
                 fs_1.default.writeFile(filePath, JSON.stringify(data), (err) => {
-                    if (err !== undefined) {
+                    if (err !== null) {
                         reject(err);
                     }
                     else {

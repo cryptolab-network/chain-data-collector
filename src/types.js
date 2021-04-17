@@ -62,17 +62,22 @@ class Validator {
         this.prefs = new ValidatorPrefs(prefs.commission.toNumber(), prefs.blocked.isTrue);
         this.active = true;
         this.nominators = [];
+        this.activeNominators = 0;
+        this.totalNominators = 0;
     }
-    // const v = validators[i];
-    //     const activeKSM = new BigNumber(v.exposure.total).toNumber()/KUSAMA_DECIMAL;
-    //     const commission = v.validatorPrefs.commission / 10000000;
-    //     // console.log(`(((${eraReward} / ${KUSAMA_DECIMAL}) / ${validatorCount}) * (1 - ${commission}) * 365) / ${activeKSM} * 4`);
-    //     const apy = activeKSM === 0 ? 0 : (((eraReward / KUSAMA_DECIMAL) / validatorCount) * (1 - commission/100) * 365) / activeKSM * 4;
-    //     v.apy = apy;
-    //     if (isNaN(apy)) {
-    //       // console.log(`(((${eraReward} / ${KUSAMA_DECIMAL}) / ${validatorCount}) * (1 - ${commission}) * 365) / ${activeKSM} * 4`);
-    //       v.apy = 0;
-    //     }
+    exportString() {
+        return {
+            accountId: this.accountId,
+            exposure: this.exposure.exportString(),
+            identity: this.identity,
+            stakingLedger: this.stakingLedger.exportString(),
+            prefs: this.prefs,
+            active: this.active,
+            nominators: this.nominators.map((n) => { return n.exportString(); }),
+            activeNominators: this.activeNominators,
+            totalNominators: this.totalNominators,
+        };
+    }
     apy(decimals, eraReward, validatorCount) {
         const active = divide(this.exposure.total, decimals);
         const commission = this.prefs.commission / 10000000;
@@ -123,6 +128,14 @@ class StakingLedger {
         this.total = total;
         this.active = active;
         this.claimedRewardCount = claimedRewardCount;
+    }
+    exportString() {
+        return {
+            stashId: this.stashId,
+            total: this.total.toString(),
+            active: this.active.toString(),
+            claimedRewardCount: this.claimedRewardCount,
+        };
     }
 }
 class ValidatorPrefs {
@@ -181,10 +194,6 @@ class NominationDbSchema {
         this.validator = validator;
     }
     exportString() {
-        console.log('exposure=' + this.exposure.exportString());
-        console.log('nominators=' + this.nominators.map((n) => {
-            return n.exportString();
-        }));
         return {
             era: this.era,
             exposure: this.exposure.exportString(),

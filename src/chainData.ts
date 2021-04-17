@@ -155,6 +155,8 @@ class ChainData {
               _identity.display = identity.display;
               _identity.displayParent = identity.displayParent;
               validator.identity = _identity;
+              validator.totalNominators = 0;
+              validator.activeNominators = validator.exposure.others.length;
               return validator;
             });
           }
@@ -171,6 +173,8 @@ class ChainData {
           const validator = new Validator(intention.accountId.toString(), intention.exposure,
             intention.stakingLedger, intention.validatorPrefs);
           validator.identity = _identity;
+          validator.totalNominators = 0;
+          validator.activeNominators = 0;
           return validator;
         })
       )
@@ -195,6 +199,7 @@ class ChainData {
         validators.forEach(validator => {
           if(target === validator?.accountId) {
             validator.nominators.push(nominator);
+            validator.totalNominators++;
           }
         });
       });
@@ -205,4 +210,23 @@ class ChainData {
     }
   }
 
+  async getNominators() {
+    const nominators = await this.api?.query.staking.nominators.entries();
+    if(nominators === undefined) {
+      throw new Error('Failed to get nominator data from chain');
+    }
+    let balancedNominators = await Promise.all(
+      nominators.map((nominator) => 
+        this.api?.derive.balances.all(nominator[0].toHuman()?.toString()!).then((balance) => {
+          const _balance = new Balance(balance.freeBalance.toBigInt(), balance.lockedBalance.toBigInt());
+          const targets: string[] = [];
+          nominator[1].unwrap().targets.forEach((target)=>{
+            targets.push(target.toString());
+          });
+          return new BalancedNominator(nominator[0].toHuman()?.toString()!, targets, _balance);
+        })
+      )
+    );
+    return balancedNominators;
+  }
 }

@@ -11,24 +11,22 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Scheduler = void 0;
 const cron_1 = require("cron");
-const oneKvData_1 = require("./oneKvData");
-const KUSAMA_DECIMAL = 1000000000000;
+const POLKADOT_DECIMAL = 10000000000;
 class Scheduler {
     constructor(chainData, db, cacheData) {
         this.chainData = chainData;
         this.cacheData = cacheData;
         this.db = db;
         this.isCaching = false;
-        this.oneKvHandler = new oneKvData_1.OneKvHandler(this.chainData, this.cacheData, this.db);
     }
     start() {
-        const job = new cron_1.CronJob('30 */1 * * *', () => __awaiter(this, void 0, void 0, function* () {
+        const job = new cron_1.CronJob('35 */1 * * *', () => __awaiter(this, void 0, void 0, function* () {
             if (this.isCaching) {
                 return;
             }
             this.isCaching = true;
             try {
-                console.log('Kusama scheduler starts');
+                console.log('Polkadot scheduler starts');
                 yield this.updateActiveEra();
                 const activeEra = yield this.chainData.getActiveEraIndex();
                 const eraReward = yield this.chainData.getEraTotalReward(activeEra - 1);
@@ -53,9 +51,7 @@ class Scheduler {
                 this.cacheData.update('nominators', nominators.map((n) => {
                     return n === null || n === void 0 ? void 0 : n.exportString();
                 }));
-                console.log('length ' + validatorWaitingInfo.validators.length);
-                yield this.cacheOneKVInfo(validatorWaitingInfo.validators);
-                console.log('Kusama scheduler ends');
+                console.log('Polkadot scheduler ends');
             }
             catch (err) {
                 console.log(err);
@@ -64,14 +60,6 @@ class Scheduler {
             this.isCaching = false;
         }), null, true, 'America/Los_Angeles', null, true);
         job.start();
-    }
-    cacheOneKVInfo(validators) {
-        return __awaiter(this, void 0, void 0, function* () {
-            const oneKvSummary = yield this.oneKvHandler.getValidValidators(validators);
-            this.cacheData.update('onekv', oneKvSummary.toJSON());
-            const oneKvNominators = yield this.oneKvHandler.getOneKvNominators();
-            this.cacheData.update('oneKvNominators', oneKvNominators);
-        });
     }
     updateActiveEra() {
         return __awaiter(this, void 0, void 0, function* () {
@@ -105,7 +93,7 @@ class Scheduler {
                     commissionChanged = 0;
                 }
             }
-            const apy = validator.apy(BigInt(KUSAMA_DECIMAL), BigInt(eraReward), validatorCount);
+            const apy = validator.apy(BigInt(POLKADOT_DECIMAL), BigInt(eraReward), validatorCount);
             const data = {
                 era: era,
                 exposure: validator.exposure,

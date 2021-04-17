@@ -12,7 +12,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.OneKvHandler = exports.OneKvSummary = void 0;
+exports.OneKvHandler = exports.OneKvNominatorSummary = exports.OneKvNominatedInfoDetail = exports.OneKvSummary = void 0;
 const axios_1 = __importDefault(require("axios"));
 const moment_1 = __importDefault(require("moment"));
 const keys = require('../config/keys');
@@ -24,6 +24,36 @@ class OneKvSummary {
         this.electedCount = electedCount;
         this.electionRate = (electedCount / valid.length),
             this.valid = valid;
+    }
+    toJSON() {
+        return {
+            activeEra: this.activeEra,
+            validatorCount: this.validatorCount,
+            electedCount: this.electedCount,
+            electionRate: this.electionRate,
+            valid: this.valid.map((v) => {
+                var _a, _b;
+                return {
+                    aggregate: v.aggregate,
+                    rank: v.rank,
+                    oneKvNominated: v.oneKvNominated,
+                    unclaimedEra: v.unclaimedEra,
+                    inclusion: v.inclusion,
+                    name: v.name,
+                    stash: v.stash,
+                    identity: v.identity,
+                    nominatedAt: moment_1.default(v.nominatedAt).format(),
+                    elected: v.elected,
+                    activeNominators: v.activeNominators,
+                    totalNominators: v.totalNominators,
+                    stakingInfo: {
+                        stakingLedger: (_a = v.detail) === null || _a === void 0 ? void 0 : _a.stakingLedger.exportString(),
+                        validatorPrefs: (_b = v.detail) === null || _b === void 0 ? void 0 : _b.prefs,
+                        stashId: v.stash,
+                    }
+                };
+            }),
+        };
     }
 }
 exports.OneKvSummary = OneKvSummary;
@@ -39,20 +69,8 @@ class OneKvValidatorInfo {
         this.identity = identity;
         this.nominatedAt = nominatedAt;
         this.elected = false;
-    }
-    toJSON() {
-        return {
-            aggregate: this.aggregate,
-            rank: this.rank,
-            oneKvNominated: this.oneKvNominated,
-            unclaimedEra: this.unclaimedEra,
-            inclusion: this.inclusion,
-            name: this.name,
-            stash: this.stash,
-            identity: this.identity,
-            nominatedAt: moment_1.default(this.nominatedAt).format(),
-            elected: this.elected,
-        };
+        this.activeNominators = 0;
+        this.totalNominators = 0;
     }
 }
 class Aggregate {
@@ -77,11 +95,74 @@ class Identity {
         this.verified = verified;
     }
 }
-class OneKvHandler {
-    constructor(chaindata) {
-        this.chaindata = chaindata;
+class OneKvNominatorInfo {
+    constructor(current, lastNomination, address) {
+        this.current = current;
+        this.lastNomination = lastNomination;
+        this.address = address;
     }
-    getValidValidators() {
+    toJSON() {
+        return {
+            current: this.current,
+            address: this.address,
+            lastNomination: moment_1.default(this.lastNomination).format(),
+        };
+    }
+}
+class OneKvNominatedInfoDetail {
+    constructor(stash, name, elected) {
+        this.stash = stash;
+        this.name = name;
+        this.elected = elected;
+    }
+}
+exports.OneKvNominatedInfoDetail = OneKvNominatedInfoDetail;
+class OneKvNominatorSummary {
+    constructor(activeEra, nominators) {
+        this.activeEra = activeEra;
+        this.nominators = nominators;
+    }
+}
+exports.OneKvNominatorSummary = OneKvNominatorSummary;
+class OneKvHandler {
+    constructor(chaindata, cachedata, db) {
+        this.chaindata = chaindata;
+        this.cachedata = cachedata;
+        this.db = db;
+    }
+    getOneKvNominators() {
+        return __awaiter(this, void 0, void 0, function* () {
+            let res = yield axios_1.default.get(`${NODE_RPC_URL}/nominators`);
+            if (res.status !== 200) {
+                console.log(`no data`);
+                throw new Error('Failed to fetch 1kv nominators.');
+            }
+            let nominators = res.data;
+            let validCandidates = yield this.cachedata.fetch('onekv').catch((err) => {
+                console.error(err);
+                throw new Error(err);
+            });
+            const activeEra = yield this.chaindata.getActiveEraIndex();
+            nominators = nominators.map((nominator, index, array) => {
+                const current = nominator.current.map((stash, index, array) => {
+                    let candidate = validCandidates.valid.find((c, index, array) => {
+                        return stash === c.stash;
+                    });
+                    if (candidate === undefined) {
+                        return new OneKvNominatedInfoDetail(stash, '', false);
+                    }
+                    else {
+                        return new OneKvNominatedInfoDetail(stash, candidate.name, candidate.elected);
+                    }
+                });
+                return new OneKvNominatorInfo(current, nominator.lastNomination, nominator.address);
+            });
+            const summary = new OneKvNominatorSummary(activeEra, nominators);
+            yield this.cachedata.update('onekvNominators', summary);
+            return summary;
+        });
+    }
+    getValidValidators(validators) {
         return __awaiter(this, void 0, void 0, function* () {
             const res = yield axios_1.default.get(`${NODE_RPC_URL}/valid`);
             if (res.status !== 200) {
@@ -94,7 +175,13 @@ class OneKvHandler {
                 const activeValidators = eraValidatorInfo.activeStash;
                 const activeEra = eraValidatorInfo.activeEra;
                 let electedCount = 0;
-                valid = valid.map((candidate) => {
+                const promises = valid.map((candidate) => __awaiter(this, void 0, void 0, function* () {
+                    const validator = validators.find(v => (v === null || v === void 0 ? void 0 : v.accountId) === candidate.stash);
+                    if (validator === undefined) {
+                        console.log(`cannot find ${candidate.stash} in validator set`);
+                        return;
+                    }
+                    candidate.detail = validator;
                     if ((activeValidators === null || activeValidators === void 0 ? void 0 : activeValidators.indexOf(candidate.stash)) !== -1) {
                         candidate.elected = true;
                         electedCount++;
@@ -102,7 +189,13 @@ class OneKvHandler {
                     else {
                         candidate.elected = false;
                     }
+                    candidate.activeNominators = (validator === null || validator === void 0 ? void 0 : validator.activeNominators) || 0;
+                    candidate.totalNominators = (validator === null || validator === void 0 ? void 0 : validator.totalNominators) || 0;
                     return candidate;
+                }));
+                let newValid = yield Promise.all(promises);
+                valid = newValid.filter(function (v) {
+                    return v !== undefined;
                 });
                 const oneKvSummary = new OneKvSummary(activeEra, electedCount, valid);
                 return oneKvSummary;
