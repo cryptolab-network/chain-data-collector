@@ -145,6 +145,7 @@ export class DatabaseHandler {
       await this.ValidatorModel?.findOneAndUpdate({
         id: id
       }, {
+        id: id,
         identity: { display: data.identity.getIdentity()}, 
         'statusChange.commission': data.commissionChanged
       }, {useFindAndModify: false}).exec();
@@ -160,7 +161,6 @@ export class DatabaseHandler {
           commission: data.commission,
           apy: data.apy,
         }, {useFindAndModify: false}).exec().catch((err)=>{console.log(err)});
-        console.log(result);
         return true;
       }
       await this.NominationModel?.create({

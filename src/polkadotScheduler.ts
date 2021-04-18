@@ -21,7 +21,7 @@ export class Scheduler {
   }
 
   start() {
-    const job = new CronJob('35 */1 * * *', async () => {
+    const job = new CronJob('*/15 * * * *', async () => {
       if(this.isCaching) {
         return;
       }
