@@ -102,11 +102,11 @@ class Validator {
     }
   }
 
-  apy(decimals: bigint, eraReward: bigint, validatorCount: number) {
+  apy(decimals: bigint, eraReward: bigint, validatorCount: number, multiplier: number) {
     const active = divide(this.exposure.total, decimals);
     const commission = this.prefs.commission / 10000000;
     const avgRewardOfValidator = divide(eraReward, decimals) / validatorCount;
-    const apy = active === 0 ? 0 : (avgRewardOfValidator * (1 - commission / 100) * 365) / active * 4;
+    const apy = active === 0 ? 0 : (avgRewardOfValidator * (1 - commission / 100) * 365) / active * multiplier;
     return apy;
   }
 }

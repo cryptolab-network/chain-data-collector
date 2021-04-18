@@ -109,7 +109,7 @@ export class Scheduler {
     if(commissionChanged !== 0) {
       console.log('commission changed:' + commissionChanged  + ' from ' + latestCommission + " to " + validator.prefs.commissionPct());
     }
-    const apy = validator.apy(BigInt(KUSAMA_DECIMAL), BigInt(eraReward), validatorCount);
+    const apy = validator.apy(BigInt(KUSAMA_DECIMAL), BigInt(eraReward), validatorCount, 4);
     const data = {
       era: era,
       exposure: validator.exposure,

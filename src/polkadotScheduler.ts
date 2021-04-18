@@ -93,7 +93,7 @@ export class Scheduler {
         commissionChanged = 0;
       }
     }
-    const apy = validator.apy(BigInt(POLKADOT_DECIMAL), BigInt(eraReward), validatorCount);
+    const apy = validator.apy(BigInt(POLKADOT_DECIMAL), BigInt(eraReward), validatorCount, 1);
     const data = {
       era: era,
       exposure: validator.exposure,
