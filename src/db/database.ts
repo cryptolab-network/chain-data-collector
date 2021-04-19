@@ -131,48 +131,54 @@ export class DatabaseHandler {
   }
 
   async saveValidatorNominationData(id: string, data: any) {
-    const isDataValid = this.__validateNominationInfo(id, data);
-    if(!isDataValid) {
-      return false;
-    }
-    const { validator, objectData } = await this.getValidatorStatus(id);
-    if(validator === undefined || validator.length === 0) {
-      const vData = new ValidatorDbSchema(id, new IdentityDbSchema(data.identity.getIdentity()), new StatusChange(0));
-      await this.ValidatorModel?.create(vData).catch((err: any) => console.error(err));
-      const nData = new NominationDbSchema(data.era, data.exposure, data.nominators, data.commission, data.apy, id);
-      await this.NominationModel?.create(nData.exportString()).catch((err: any) => console.error(err));
-    } else {
-      await this.ValidatorModel?.findOneAndUpdate({
-        id: id
-      }, {
-        id: id,
-        identity: { display: data.identity.getIdentity()}, 
-        'statusChange.commission': data.commissionChanged
-      }, {useFindAndModify: false}).exec();
-      const nomination = await this.NominationModel?.findOne({era: data.era, validator: id}).exec();
-      if(nomination !== null) { // the data of this era exist, dont add a new one
-        const result = await this.NominationModel?.findOneAndUpdate({
-          era: data.era, validator: id,
+    try {
+      const isDataValid = this.__validateNominationInfo(id, data);
+      if(!isDataValid) {
+        return false;
+      }
+      const { validator, objectData } = await this.getValidatorStatus(id);
+      if(validator === undefined || validator.length === 0) {
+        const vData = new ValidatorDbSchema(id, new IdentityDbSchema(data.identity.getIdentity()), new StatusChange(0));
+        await this.ValidatorModel?.create(vData).catch((err: any) => console.error(err));
+        const nData = new NominationDbSchema(data.era, data.exposure, data.nominators, data.commission, data.apy, id);
+        await this.NominationModel?.create(nData.exportString()).catch((err: any) => console.error(err));
+      } else {
+        await this.ValidatorModel?.findOneAndUpdate({
+          id: id
         }, {
+          id: id,
+          identity: { display: data.identity.getIdentity()}, 
+          'statusChange.commission': data.commissionChanged
+        }, {useFindAndModify: false}).exec();
+        const nomination = await this.NominationModel?.findOne({era: data.era, validator: id}).exec();
+        if(nomination !== null) { // the data of this era exist, dont add a new one
+          const result = await this.NominationModel?.findOneAndUpdate({
+            era: data.era, validator: id,
+          }, {
+            era: data.era,
+            validator: id,
+            exposure: data.exposure.exportString(),
+            nominators: data.nominators.map((n: any)=>{return n.exportString();}),
+            commission: data.commission,
+            apy: data.apy,
+          }, {useFindAndModify: false}).exec().catch((err)=>{console.log(err)});
+          return true;
+        }
+        await this.NominationModel?.create({
           era: data.era,
-          validator: id,
           exposure: data.exposure.exportString(),
           nominators: data.nominators.map((n: any)=>{return n.exportString();}),
           commission: data.commission,
           apy: data.apy,
-        }, {useFindAndModify: false}).exec().catch((err)=>{console.log(err)});
-        return true;
+          validator: id
+        });
       }
-      await this.NominationModel?.create({
-        era: data.era,
-        exposure: data.exposure.exportString(),
-        nominators: data.nominators.map((n: any)=>{return n.exportString();}),
-        commission: data.commission,
-        apy: data.apy,
-        validator: id
-      });
+      return true;
+    } catch (err) {
+      console.log(err);
+      console.log(`id = ${id}`);
+      return false;
     }
-    return true;
   }
 
   async saveActiveEra(era: number) {

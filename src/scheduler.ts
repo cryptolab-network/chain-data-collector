@@ -106,9 +106,9 @@ export class Scheduler {
         commissionChanged = 0;
       }
     }
-    if(commissionChanged !== 0) {
-      console.log('commission changed:' + commissionChanged  + ' from ' + latestCommission + " to " + validator.prefs.commissionPct());
-    }
+    // if(commissionChanged !== 0) {
+    //   console.log('commission changed:' + commissionChanged  + ' from ' + latestCommission + " to " + validator.prefs.commissionPct());
+    // }
     const apy = validator.apy(BigInt(KUSAMA_DECIMAL), BigInt(eraReward), validatorCount, 4);
     const data = {
       era: era,
