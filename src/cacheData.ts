@@ -6,7 +6,7 @@ export class Cache {
   constructor(folder: string) {
     this.folder = folder;
     if (!fs.existsSync(folder)){
-      fs.mkdirSync(folder);
+      fs.mkdirSync(folder, {recursive: true});
     }
   }
 
