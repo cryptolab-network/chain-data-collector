@@ -1,5 +1,5 @@
 import { Mongoose, Schema, Model, Document, set } from 'mongoose';
-import { Identity, ValidatorDbSchema, NominationDbSchema, StatusChange, IdentityDbSchema } from '../types';
+import { Identity, ValidatorDbSchema, NominationDbSchema, StatusChange, IdentityDbSchema, ValidatorEraReward } from '../types';
 import { ValidatorSchema, ValidatorModel, NominationModel, NominationSchema,
   ChainInfoModel, ChainInfoSchema, IUnclaimedEraInfo, UnclaimedEraInfoSchema } from './schema';
 
@@ -44,6 +44,14 @@ export class DatabaseHandler {
     this.validatorSchema_ = new Schema(ValidatorSchema);
     this.nominationSchema_ = new Schema(NominationSchema);
     this.unclamedEraInfoSchema_ = new Schema(UnclaimedEraInfoSchema);
+  }
+
+  async getValidatorList() {
+    let validators = await this.ValidatorModel?.find({}).lean().exec() as ValidatorDbSchema[];
+    return validators.reduce((acc: string[], v: ValidatorDbSchema)=>{
+      acc.push(v.id.toString());
+      return acc;
+    }, []);
   }
 
   async getValidatorStatusOfEra(id: string, era: number) {
@@ -189,6 +197,40 @@ export class DatabaseHandler {
     }, {upsert: true}).exec().catch((err)=>{
       console.error(err);
     });
+  }
+
+  async updateValidatorTotalReward(id: string, reward: ValidatorEraReward) {
+    const validator = await this.ValidatorModel?.findOne({
+      id: id,
+    }).lean().exec() as ValidatorDbSchema;
+    if(validator === null) {
+      return;
+    }
+    let start = reward.era;
+    let total = reward.reward;
+    if(validator.rewards !== undefined) {
+      if(validator.rewards.end >= reward.era) {
+        // updated, finish
+        return;
+      }
+      if(start < validator.rewards.start) {
+        start =  validator.rewards.start;
+      }
+      if(!Number.isNaN(validator.rewards!.total) && validator.rewards!.total !== undefined) {
+        total = validator.rewards!.total + reward.reward;
+      }
+    }
+    const result = await this.ValidatorModel?.updateOne({
+      id: id,
+    }, {
+      $set: {
+        rewards: {
+            start: start,
+            end: reward.era,
+            total: total,
+          }
+      }
+    }).exec();
   }
 
   __validateNominationInfo(id: string, data: any) {

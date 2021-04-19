@@ -1,4 +1,4 @@
-export { Identity, BalancedNominator, Balance, Validator, Exposure, ValidatorDbSchema, NominationDbSchema, StatusChange, IdentityDbSchema };
+export { Identity, BalancedNominator, Balance, Validator, Exposure, ValidatorDbSchema, NominationDbSchema, StatusChange, IdentityDbSchema, EraRewardDist };
 import type { AccountId, EraIndex as PolkadotEraIndex, Exposure as PolkadotExposure, Nominations,
   RewardDestination, StakingLedger as PolkadotStakingLedger, ValidatorPrefs as PolkadotValidatorPrefs } from '@polkadot/types/interfaces';
 import { deprecationHandler } from 'moment';
@@ -194,6 +194,7 @@ class ValidatorDbSchema {
   identity: IdentityDbSchema
   statusChange: StatusChange
   info?: NominationDbSchema[]
+  rewards?: ValidatorTotalReward
   constructor(id: string, identity: IdentityDbSchema, statusChange: StatusChange) {
     this.id = id;
     this.identity = identity;
@@ -263,6 +264,36 @@ class NominationDbSchema {
   }
 }
 
+class EraRewardDist {
+  era: number
+  total: number
+  individual: Map<string, number>
+  constructor(era: number, total: number, individual: Map<string, number>) {
+    this.era = era;
+    this.total = total;
+    this.individual = individual;
+  }
+}
+
+export class ValidatorTotalReward {
+  start: number
+  end: number
+  total: number
+  constructor(start: number, end: number, total: number) {
+    this.start = start;
+    this.end = end;
+    this.total = total;
+  }
+}
+
+export class ValidatorEraReward {
+  era: number
+  reward: number
+  constructor(era: number, reward: number) {
+    this.era = era;
+    this.reward = reward;
+  }
+}
 
 const __toHexString = (v: bigint) => {
   let hex = v.toString(16);

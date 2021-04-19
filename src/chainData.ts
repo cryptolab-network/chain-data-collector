@@ -1,5 +1,5 @@
 import { ApiPromise, WsProvider } from '@polkadot/api';
-import { Identity, BalancedNominator, Balance, Validator } from './types';
+import { Identity, BalancedNominator, Balance, Validator, EraRewardDist } from './types';
 
 export { ChainData };
 
@@ -92,7 +92,16 @@ class ChainData {
     const stakerPoints = await this.api!.derive.staking.stakerPoints(stash);
     return stakerPoints;
   }
-  
+
+  getEraRewardDist = async (era: number) => {
+    const eraRewardDist = await this.api!.query.staking.erasRewardPoints(era);
+    const individuals = new Map<string, number>();
+    eraRewardDist.individual.forEach((point, id)=>{
+      individuals.set(id.toString(), point.toNumber());
+    });
+    return new EraRewardDist(era, eraRewardDist.total.toNumber(), individuals);
+  }
+
   getValidators = async () => {
     // retrive active validators
     try {
@@ -148,6 +157,7 @@ class ChainData {
           withNominations: true,
           withPrefs: true,
         }).then((validator) => {
+          // console.log(validator.stakingLedger.toString());
           return new Validator(authorityId.toString(),
             validator.exposure, validator.stakingLedger, validator.validatorPrefs);
         })
@@ -171,6 +181,7 @@ class ChainData {
         return validator;
       }
     ));
+
     intentions = await Promise.all(
       waitingInfo.info.map((intention) => {
         return this.api!.derive.accounts.info(intention.accountId).then(({ identity }) => {

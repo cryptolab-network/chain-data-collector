@@ -5,6 +5,7 @@ import { DatabaseHandler } from "./db/database";
 import { CronJob } from 'cron';
 import { BalancedNominator, Validator } from "./types";
 import { OneKvHandler } from "./oneKvData";
+import { RewardCalc } from "./rewardCalc";
 
 const KUSAMA_DECIMAL = 1000000000000;
 
@@ -23,6 +24,13 @@ export class Scheduler {
   }
 
   start() {
+    const calc = new RewardCalc(this.chainData, this.db, this.cacheData);
+    const rewardCalcJob = new CronJob('0 2,8,14,20 * * *', async () => {
+      console.log('Kusama Reward Calc starts');
+      await calc.calc(BigInt(KUSAMA_DECIMAL));
+      console.log('Kusama Reward Calc ends');
+    }, null, true, 'America/Los_Angeles', null, true);
+    rewardCalcJob.start();
     const job = new CronJob('*/10 * * * *', async () => {
       if(this.isCaching) {
         return;

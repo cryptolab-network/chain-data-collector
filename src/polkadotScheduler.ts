@@ -5,6 +5,7 @@ import { DatabaseHandler } from "./db/database";
 import { CronJob } from 'cron';
 import { BalancedNominator, Validator } from "./types";
 import { OneKvHandler } from "./oneKvData";
+import { RewardCalc } from "./rewardCalc";
 
 const POLKADOT_DECIMAL = 10000000000;
 
@@ -21,6 +22,14 @@ export class Scheduler {
   }
 
   start() {
+    const calc = new RewardCalc(this.chainData, this.db, this.cacheData);
+    const rewardCalcJob = new CronJob('0 0 * * *', async () => {
+      console.log('Polkadot Reward Calc starts');
+      await calc.calc(BigInt(POLKADOT_DECIMAL));
+      console.log('Polkadot Reward Calc ends');
+    }, null, true, 'America/Los_Angeles', null, true);
+    rewardCalcJob.start();
+
     const job = new CronJob('*/15 * * * *', async () => {
       if(this.isCaching) {
         return;
