@@ -20,7 +20,7 @@ class ChainData {
   }
 
   getActiveEraIndex = async () => {
-    const activeEra = await this.api?.query.staking.activeEra();
+    const activeEra = await this.api!.query.staking.activeEra();
     if(activeEra !== undefined) {
       if (activeEra.isNone) {
         console.log(`NO ACTIVE ERA: ${activeEra.toString()}`);
@@ -41,7 +41,7 @@ class ChainData {
       throw new Error("It is a future era");
     }
   
-    const latestBlock = await this.api?.rpc.chain.getBlock();
+    const latestBlock = await this.api!.rpc.chain.getBlock();
     if (latestBlock === undefined) {
       throw new Error('Failed to get the latest block hash');
     }
@@ -55,11 +55,11 @@ class ChainData {
     let testBlockNumber =
       latestBlock.block.header.number.toNumber() - approxBlocksAgo;
     while (true) {
-      const blockHash = await this.api?.rpc.chain.getBlockHash(testBlockNumber);
+      const blockHash = await this.api!.rpc.chain.getBlockHash(testBlockNumber);
       if (blockHash === undefined) {
         throw new Error('Failed to get the block hash');
       }
-      const testEra = await this.api?.query.staking.activeEra.at(blockHash);
+      const testEra = await this.api!.query.staking.activeEra.at(blockHash);
       if (testEra === undefined) {
         throw new Error(`Failed to get the active era @ ${blockHash}`);
       }
@@ -79,17 +79,17 @@ class ChainData {
   }
 
   getValidatorsByEraBlockHash = async (eraBlockHash: string) => {
-    const validators = await this.api?.query.session.validators.at(eraBlockHash);
+    const validators = await this.api!.query.session.validators.at(eraBlockHash);
     return validators;
   }
 
   getEraTotalReward = async (era: number) => {
-    const totalReward = await this.api?.query.staking.erasValidatorReward(era);
+    const totalReward = await this.api!.query.staking.erasValidatorReward(era);
     return totalReward?.toString();
   }
 
   getStakerPoints = async (stash: string) => {
-    const stakerPoints = await this.api?.derive.staking.stakerPoints(stash);
+    const stakerPoints = await this.api!.derive.staking.stakerPoints(stash);
     return stakerPoints;
   }
   
@@ -128,12 +128,12 @@ class ChainData {
       waitingInfo,
       nominators,
     ] = await Promise.all([
-      this.api?.query.session.validators(),
-      this.api?.derive.staking.waitingInfo({
+      this.api!.query.session.validators(),
+      this.api!.derive.staking.waitingInfo({
         withLedger: true,
         withPrefs: true,
       }),
-      this.api?.query.staking.nominators.entries(),
+      this.api!.query.staking.nominators.entries(),
     ])
     if(validatorAddresses === undefined || waitingInfo === undefined || nominators === undefined) {
       throw new Error('Failed to get chain data');
@@ -141,7 +141,7 @@ class ChainData {
 
     validators = await Promise.all(
       validatorAddresses.map((authorityId) => 
-        this.api?.derive.staking.query(authorityId, {
+        this.api!.derive.staking.query(authorityId, {
           withDestination: false,
           withExposure: true,
           withLedger: true,
@@ -157,7 +157,7 @@ class ChainData {
       validators.map((validator) => {
         if(validator !== undefined) {
           if(validator.accountId !== undefined) {
-            this.api?.derive.accounts.info(validator.accountId).then(({ identity }) => {
+            this.api!.derive.accounts.info(validator.accountId).then(({ identity }) => {
               const _identity = new Identity(validator.accountId.toString());
               _identity.display = identity.display;
               _identity.displayParent = identity.displayParent;
@@ -173,7 +173,7 @@ class ChainData {
     ));
     intentions = await Promise.all(
       waitingInfo.info.map((intention) => {
-        return this.api?.derive.accounts.info(intention.accountId).then(({ identity }) => {
+        return this.api!.derive.accounts.info(intention.accountId).then(({ identity }) => {
           const _identity = new Identity(intention.accountId.toString());
           _identity.display = identity.display;
           _identity.displayParent = identity.displayParent;
@@ -191,7 +191,7 @@ class ChainData {
     
     let balancedNominators = await Promise.all(
       nominators.map((nominator) => 
-        this.api?.derive.balances.all(nominator[0].toHuman()?.toString()!).then((balance) => {
+        this.api!.derive.balances.all(nominator[0].toHuman()?.toString()!).then((balance) => {
           const _balance = new Balance(balance.freeBalance.toBigInt(), balance.lockedBalance.toBigInt());
           const targets: string[] = [];
           nominator[1].unwrap().targets.forEach((target)=>{
@@ -218,13 +218,13 @@ class ChainData {
   }
 
   async getNominators() {
-    const nominators = await this.api?.query.staking.nominators.entries();
+    const nominators = await this.api!.query.staking.nominators.entries();
     if(nominators === undefined) {
       throw new Error('Failed to get nominator data from chain');
     }
     let balancedNominators = await Promise.all(
       nominators.map((nominator) => 
-        this.api?.derive.balances.all(nominator[0].toHuman()?.toString()!).then((balance) => {
+        this.api!.derive.balances.all(nominator[0].toHuman()?.toString()!).then((balance) => {
           const _balance = new Balance(balance.freeBalance.toBigInt(), balance.lockedBalance.toBigInt());
           const targets: string[] = [];
           nominator[1].unwrap().targets.forEach((target)=>{
@@ -235,5 +235,10 @@ class ChainData {
       )
     );
     return balancedNominators;
+  }
+
+  getCurrentValidatorCount = async () => {
+    const validatorCount = await this.api!.query.staking.validatorCount();
+    return validatorCount.toNumber();
   }
 }

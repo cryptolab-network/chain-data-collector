@@ -31,14 +31,14 @@ export class Scheduler {
         await this.updateActiveEra();
         const activeEra = await this.chainData.getActiveEraIndex();
         const eraReward = await this.chainData.getEraTotalReward(activeEra - 1);
+        const validatorCount = await this.chainData.getCurrentValidatorCount();
         console.log('era reward: ' + eraReward);
         const validatorWaitingInfo = await this.chainData.getValidatorWaitingInfo();
         console.log('Write to database');
         for(let i = 0; i < validatorWaitingInfo.validators.length; i++) {
           const validator = validatorWaitingInfo.validators[i];
           if(validator !== undefined && eraReward !== undefined) {
-            const eraValidatorCount = validatorWaitingInfo.validators.length;
-            this.makeValidatorInfoOfEra(validator, eraReward, activeEra, 297);
+            await this.makeValidatorInfoOfEra(validator, eraReward, activeEra, validatorCount);
           }
         }
         this.cacheData.update('validDetailAll', { 
