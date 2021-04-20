@@ -19,7 +19,7 @@ export class DatabaseHandler {
   constructor() {
     this.__initSchema();
     set('debug', true);
-    this.lock = new AsyncLock();
+    this.lock = new AsyncLock({maxPending: 300});
   }
 
   connect(name: string, pass: string, ip: string, port: number, dbName: string) {
