@@ -10,12 +10,11 @@ class ChainData {
   api?: ApiPromise
   constructor(url: string) {
     this.url = url;
-    
   }
 
   connect = async () => {
     this.api = await ApiPromise.create({
-      provider: new WsProvider(this.url, 1000),
+      provider: new WsProvider(this.url, 5000),
     });
   }
 

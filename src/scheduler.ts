@@ -24,6 +24,11 @@ export class Scheduler {
   }
 
   start() {
+    this.rewardCalcScheduler();
+    this.fetchDataScheduler();
+  }
+
+  private async rewardCalcScheduler() {
     const calc = new RewardCalc(this.chainData, this.db, this.cacheData);
     const rewardCalcJob = new CronJob('0 2,8,14,20 * * *', async () => {
       console.log('Kusama Reward Calc starts');
@@ -31,6 +36,9 @@ export class Scheduler {
       console.log('Kusama Reward Calc ends');
     }, null, true, 'America/Los_Angeles', null, true);
     rewardCalcJob.start();
+  }
+
+  private async fetchDataScheduler() {
     const job = new CronJob('*/10 * * * *', async () => {
       if(this.isCaching) {
         return;

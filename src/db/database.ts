@@ -1,20 +1,25 @@
 import { Mongoose, Schema, Model, Document, set } from 'mongoose';
 import { Identity, ValidatorDbSchema, NominationDbSchema, StatusChange, IdentityDbSchema, ValidatorEraReward } from '../types';
 import { ValidatorSchema, ValidatorModel, NominationModel, NominationSchema,
-  ChainInfoModel, ChainInfoSchema, IUnclaimedEraInfo, UnclaimedEraInfoSchema } from './schema';
+  ChainInfoModel, ChainInfoSchema, IUnclaimedEraInfo, UnclaimedEraInfoSchema, IStashInfo, StashInfoSchema } from './schema';
+import AsyncLock from 'async-lock';
 
 export class DatabaseHandler {
   validatorSchema_?: Schema
   nominationSchema_?: Schema
   chainInfoSchema_?: Schema
   unclamedEraInfoSchema_?: Schema
+  stashInfoSchema_?: Schema
   ValidatorModel?: Model<Document<any, {}>, {}>
   NominationModel?: Model<Document<any, {}>, {}>
   ChainInfoModel?: Model<Document<any, {}>, {}>
   UnclaimedEraInfoModel?: Model<Document<any, {}>, {}>
+  StashInfoModel?: Model<Document<any, {}>, {}>
+  lock: AsyncLock
   constructor() {
     this.__initSchema();
     set('debug', true);
+    this.lock = new AsyncLock();
   }
 
   connect(name: string, pass: string, ip: string, port: number, dbName: string) {
@@ -33,6 +38,7 @@ export class DatabaseHandler {
     this.NominationModel = db.model('Nomination_' + dbName, NominationSchema, 'nomination');
     this.ChainInfoModel = db.model('ChainInfo_' + dbName, ChainInfoSchema, 'chainInfo');
     this.UnclaimedEraInfoModel = db.model('UnclaimedEraInfo_' + dbName, UnclaimedEraInfoSchema, 'unclaimedEraInfo');
+    this.StashInfoModel = db.model('StashInfo_' + dbName, StashInfoSchema, 'stashInfo' );
     db.on('error', console.error.bind(console, 'connection error:'));
     db.once('open', async function() {
       console.log('DB connected');
@@ -44,6 +50,7 @@ export class DatabaseHandler {
     this.validatorSchema_ = new Schema(ValidatorSchema);
     this.nominationSchema_ = new Schema(NominationSchema);
     this.unclamedEraInfoSchema_ = new Schema(UnclaimedEraInfoSchema);
+    this.stashInfoSchema_ = new Schema(StashInfoSchema);
   }
 
   async getValidatorList() {
@@ -196,6 +203,26 @@ export class DatabaseHandler {
     });
   }
 
+  async saveLastFetchedBlock(blockNumber: number) {
+    const result = await this.ChainInfoModel?.updateOne({}, {$set: {lastFetchedBlock: blockNumber}}, {upsert: true}).exec().catch((err)=>{
+      console.error(err);
+    });
+  }
+
+  async getLastFetchedRewardBlock(minBlockNumber: number) {
+    const chainInfo = await this.ChainInfoModel?.findOne({}, 'lastFetchedBlock').exec();
+    let blockNumber = minBlockNumber;
+    if(chainInfo === null) {
+      blockNumber = minBlockNumber;
+    } else {
+      blockNumber = chainInfo?.get('lastFetchedBlock');
+      if(blockNumber === undefined) {
+        blockNumber = minBlockNumber;
+      }
+    }
+    return blockNumber;
+  }
+
   async saveValidatorUnclaimedEras(id: string, eras: number[]) {
     const result = await this.UnclaimedEraInfoModel?.updateOne({validator: id}, {
       eras: eras,
@@ -237,6 +264,26 @@ export class DatabaseHandler {
           }
       }
     }).exec();
+  }
+
+  
+  async saveRewards(stash: string, era: number, amount: number) {
+    // console.log(era, amount);
+    this.lock.acquire('eraRewards', async ()=>{
+      const result = await this.StashInfoModel?.updateOne({
+        id: stash,
+      }, {
+        id: stash,
+        "$push": {
+          eraRewards: {
+            era: era,
+            amount: amount,
+          }
+        }
+      }, {upsert: true}).exec().catch((err)=>{console.error(err)});
+    }).catch((err)=>{
+      console.error(err);
+    });
   }
 
   __validateNominationInfo(id: string, data: any) {

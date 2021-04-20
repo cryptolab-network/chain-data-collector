@@ -1,7 +1,24 @@
 import { model, Schema, Model, Document, Decimal128 } from 'mongoose';
 import { Identity, StatusChange, ValidatorTotalReward } from '../types';
 export { ValidatorModel, ValidatorSchema, NominationSchema,
-  NominationModel, ChainInfoSchema, ChainInfoModel, UnclaimedEraInfoSchema, IUnclaimedEraInfo };
+  NominationModel, ChainInfoSchema, ChainInfoModel, UnclaimedEraInfoSchema, IUnclaimedEraInfo,
+  IStashInfo, StashInfoSchema };
+
+interface IStashInfo extends Document {
+  id: string;
+  eraRewards: {
+    era: number,
+    amount: number,
+  }
+}
+
+const StashInfoSchema: Schema = new Schema({
+  id: String,
+  eraRewards: {
+    era: Number,
+    amount: Number,
+  }
+})
 
 interface IUnclaimedEraInfo extends Document {
   eras: number[];
@@ -15,10 +32,12 @@ const UnclaimedEraInfoSchema: Schema = new Schema({
 
 interface IChainInfo extends Document {
   activeEra: number;
+  lastFetchedBlock: number;
 };
 
 const ChainInfoSchema: Schema = new Schema({
   activeEra: Number,
+  lastFetchedBlock: Number,
 });
 
 const ChainInfoModel: Model<IChainInfo> = model('ChainInfo', ChainInfoSchema);
