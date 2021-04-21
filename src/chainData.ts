@@ -236,10 +236,14 @@ class ChainData {
       nominators.map((nominator) => 
         this.api!.derive.balances.all(nominator[0].toHuman()?.toString()!).then((balance) => {
           const _balance = new Balance(balance.freeBalance.toBigInt(), balance.lockedBalance.toBigInt());
-          const targets: string[] = [];
-          nominator[1].unwrap().targets.forEach((target)=>{
-            targets.push(target.toString());
-          });
+          let targets: string[] = [];
+          try {
+            nominator[1].unwrap().targets.forEach((target)=>{
+              targets.push(target.toString());
+            });
+          } catch {
+            targets = [];
+          }
           return new BalancedNominator(nominator[0].toHuman()?.toString()!, targets, _balance);
         })
       )
