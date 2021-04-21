@@ -35,13 +35,16 @@ export class RpcListener {
     if (blockNumber % 300 == 0 || this.firstTime === true) {
       this.firstTime = false;
       console.log('ProcessRewardUpToBlock ' + blockNumber);
-        this.processRewardsUpToBlock(blockNumber - 50);
+        this.processRewardsUpToBlock(blockNumber - 1);
     }
   }
 
   private async processRewardsUpToBlock(blockNumber: number) {
+    if (this.isFetchingRewards) { 
+      console.log('Fetching rewards...');
+      return; 
+    }
     try{
-      if (this.isFetchingRewards) { return; }
       this.isFetchingRewards = true;
       const startBlockNumber = (await this.db.getLastFetchedRewardBlock(blockNumber - 304000)) + 1;
       console.log(`Starts process ${this.chain} block events from block ${startBlockNumber}`);
@@ -67,13 +70,14 @@ export class RpcListener {
             await this.db.saveLastFetchedBlock(i);
           } catch (error) {
             console.error(`Error while fetching rewards in block #${i}: ${error}`);
-            continue;
+            break;
           }
       }
     } catch(err) {
       console.log(err);
     } finally {
       this.isFetchingRewards = false;
+      console.log('Fetch reward loop ends');
     };
   }
 
