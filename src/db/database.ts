@@ -239,15 +239,17 @@ export class DatabaseHandler {
     if(validator === null) {
       return;
     }
-    let start = reward.era;
+    let start = 0;
     let total = reward.reward;
     if(validator.rewards !== undefined) {
+
       if(validator.rewards.end >= reward.era) {
         // updated, finish
         return;
       }
-      if(start < validator.rewards.start) {
-        start =  validator.rewards.start;
+      start = validator.rewards.start;
+      if(reward.era < validator.rewards.start) {
+        start = reward.era;
       }
       if(!Number.isNaN(validator.rewards!.total) && validator.rewards!.total !== undefined) {
         total = validator.rewards!.total + reward.reward;
@@ -268,6 +270,22 @@ export class DatabaseHandler {
 
   
   async saveRewards(stash: string, era: number, amount: number, timestamp: number) {
+    const record = await this.StashInfoModel?.findOne({
+      stash: stash,
+      era: era,
+      amount: amount,
+      timestamp: timestamp,
+    }).exec();
+    if(record !== null) {
+      console.log('DB has an exactly the same reward record!');
+      console.log({
+        stash: stash,
+        era: era,
+        amount: amount,
+        timestamp: timestamp,
+      });
+      return;
+    }
     await this.StashInfoModel?.create({
       stash: stash,
       era: era,
