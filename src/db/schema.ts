@@ -5,20 +5,23 @@ export { ValidatorModel, ValidatorSchema, NominationSchema,
   IStashInfo, StashInfoSchema };
 
 interface IStashInfo extends Document {
-  id: string;
-  eraRewards: {
-    era: number,
-    amount: number,
-  }
+  stash: string;
+  era: number,
+  amount: number,
+  timestamp: number
 }
 
 const StashInfoSchema: Schema = new Schema({
-  id: String,
-  eraRewards: {
-    era: Number,
-    amount: Number,
-  }
+  stash: String,
+  era: Number,
+  amount: Number,
+  timestamp: Number
 })
+
+interface IEraReward extends Document {
+  era: number,
+    amount: number,
+}
 
 interface IUnclaimedEraInfo extends Document {
   eras: number[];

@@ -6,6 +6,8 @@
   "scripts": {
     "build": "npx tsc",
     "start": "node index.js",
+    "startKusama": "node index.js --chain=kusama",
+    "startPolkadot": "node index.js --chain=polkadot",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -26,7 +28,8 @@
     "cron": "^1.8.2",
     "divide-bigint": "^1.0.4",
     "moment": "^2.29.1",
-    "mongoose": "^5.12.3"
+    "mongoose": "^5.12.3",
+    "yargs": "^16.2.0"
   },
   "devDependencies": {
     "@types/async-lock": "^1.1.2",
