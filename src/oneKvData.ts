@@ -201,14 +201,14 @@ export class OneKvHandler {
     });
     const activeEra = await this.chaindata.getActiveEraIndex();
     nominators = nominators.map((nominator, index, array) => {
-      const current = (nominator.current as string[]).map((stash, index, array) => {
+      const current = (nominator.current as any[]).map((stash, index, array) => {
         let candidate = validCandidates.valid.find((c, index, array) => {
-          return stash === c.stash;
+          return stash.stash === c.stash;
         });
         if (candidate === undefined) {
-          return new OneKvNominatedInfoDetail(stash, '', false);
+          return new OneKvNominatedInfoDetail(stash.stash, '', false);
         } else {
-          return new OneKvNominatedInfoDetail(stash, candidate.name, candidate.elected);
+          return new OneKvNominatedInfoDetail(stash.stash, candidate.name, candidate.elected);
         }
       });
       return new OneKvNominatorInfo(current, nominator.lastNomination, nominator.address);
