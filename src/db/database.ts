@@ -1,23 +1,18 @@
 import { Mongoose, Schema, Model, Document, set } from 'mongoose';
-import { Identity, ValidatorDbSchema, NominationDbSchema, StatusChange, IdentityDbSchema, ValidatorEraReward } from '../types';
-import { ValidatorSchema, ValidatorModel, NominationModel, NominationSchema,
+import { Identity, ValidatorDbSchema, NominationDbSchema, StatusChange, IdentityDbSchema, ValidatorEraReward, BalancedNominator, Balance } from '../types';
+import { ValidatorSchema, ValidatorModel, NominationModel, NominationSchema, NominatorSchema,
   ChainInfoModel, ChainInfoSchema, IUnclaimedEraInfo, UnclaimedEraInfoSchema, IStashInfo, StashInfoSchema } from './schema';
 import AsyncLock from 'async-lock';
 
 export class DatabaseHandler {
-  validatorSchema_?: Schema
-  nominationSchema_?: Schema
-  chainInfoSchema_?: Schema
-  unclamedEraInfoSchema_?: Schema
-  stashInfoSchema_?: Schema
   ValidatorModel?: Model<Document<any, {}>, {}>
   NominationModel?: Model<Document<any, {}>, {}>
   ChainInfoModel?: Model<Document<any, {}>, {}>
   UnclaimedEraInfoModel?: Model<Document<any, {}>, {}>
   StashInfoModel?: Model<Document<any, {}>, {}>
+  NominatorModel?: Model<Document<any, {}>, {}>
   lock: AsyncLock
   constructor() {
-    this.__initSchema();
     set('debug', true);
     this.lock = new AsyncLock({maxPending: 1000});
   }
@@ -39,18 +34,11 @@ export class DatabaseHandler {
     this.ChainInfoModel = db.model('ChainInfo_' + dbName, ChainInfoSchema, 'chainInfo');
     this.UnclaimedEraInfoModel = db.model('UnclaimedEraInfo_' + dbName, UnclaimedEraInfoSchema, 'unclaimedEraInfo');
     this.StashInfoModel = db.model('StashInfo_' + dbName, StashInfoSchema, 'stashInfo' );
+    this.NominatorModel = db.model('Nominator_'+ dbName, NominatorSchema, 'nominator');
     db.on('error', console.error.bind(console, 'connection error:'));
     db.once('open', async function() {
       console.log('DB connected');
     });
-  }
-
-  __initSchema() {
-    this.chainInfoSchema_ = new Schema(ChainInfoSchema);
-    this.validatorSchema_ = new Schema(ValidatorSchema);
-    this.nominationSchema_ = new Schema(NominationSchema);
-    this.unclamedEraInfoSchema_ = new Schema(UnclaimedEraInfoSchema);
-    this.stashInfoSchema_ = new Schema(StashInfoSchema);
   }
 
   async getValidatorList() {
@@ -173,7 +161,7 @@ export class DatabaseHandler {
             era: data.era,
             validator: id,
             exposure: data.exposure.exportString(),
-            nominators: data.nominators.map((n: any)=>{return n.exportString();}),
+            nominators: data.nominators,
             commission: data.commission,
             apy: data.apy,
           }, {useFindAndModify: false}).exec().catch((err)=>{console.log(err)});
@@ -182,7 +170,7 @@ export class DatabaseHandler {
         await this.NominationModel?.create({
           era: data.era,
           exposure: data.exposure.exportString(),
-          nominators: data.nominators.map((n: any)=>{return n.exportString();}),
+          nominators: data.nominators,
           commission: data.commission,
           apy: data.apy,
           validator: id
@@ -193,6 +181,56 @@ export class DatabaseHandler {
       console.log(err);
       console.log(`id = ${id}`);
       return false;
+    }
+  }
+
+  async saveNominator(data: BalancedNominator, era: number) {
+    const nominator = await this.NominatorModel?.findOne({
+      address: data.address,
+    }).exec().catch((err)=>{
+      console.error(err);
+    });
+    if(nominator !== undefined && nominator !== null) { // the nominator is updated in this era, only update iff nominator is diff from data
+      const targets = nominator.get('targets');
+      const balance = nominator.get('balance');
+      if(targets.length === data.targets.length) {
+        const sorted = data.targets.sort();
+        const identical = targets.sort().every((v: string, i: number) => v === sorted[i]);
+        if(!identical) {
+          console.log('+++++++');
+          console.log(nominator, data);
+          console.log('------');
+          this.NominatorModel?.updateOne({address: data.address}, {
+            $set: {targets: data.targets},
+          }).exec().catch((err)=>{
+            console.error(err);
+          });
+        }
+      }
+      if(balance.freeBalance !== data.balance.freeBalance || balance.lockedBalance !== data.balance.lockedBalance) {
+        this.NominatorModel?.updateOne({address: data.address}, {
+          $set: { 
+            balance: {
+            freeBalance: data.balance.freeBalance,
+            lockedBalance: data.balance.lockedBalance,
+            },
+          },
+        }).exec().catch((err)=>{
+          console.error(err);
+        });
+      }
+    } else { // the nomoinator is not exist in this era, create a new one
+      this.NominatorModel?.create(
+        {
+          address: data.address,
+          targets: data.targets,
+          balance: {
+            freeBalance: data.balance.freeBalance,
+            lockedBalance: data.balance.lockedBalance,
+          },
+        }).catch((err)=>{
+        console.error(err);
+      });
     }
   }
 

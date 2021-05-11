@@ -237,11 +237,11 @@ class IdentityDbSchema {
 class NominationDbSchema {
   era: number
   exposure: Exposure
-  nominators: BalancedNominator[]
+  nominators: string[]
   commission: number
   apy: number
   validator: string
-  constructor(era: number, exposure: Exposure, nominators: BalancedNominator[], commission: number, apy: number, validator: string) {
+  constructor(era: number, exposure: Exposure, nominators: string[], commission: number, apy: number, validator: string) {
     this.era = era;
     this.exposure = exposure;
     this.nominators = nominators;
@@ -254,9 +254,7 @@ class NominationDbSchema {
     return {
       era: this.era,
       exposure: this.exposure.exportString(),
-      nominators: this.nominators.map((n)=>{
-        return n.exportString();
-      }),
+      nominators: this.nominators,
       commission: this.commission,
       apy: this.apy,
       validator: this.validator,

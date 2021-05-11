@@ -1,6 +1,6 @@
 import { model, Schema, Model, Document, Decimal128 } from 'mongoose';
 import { Identity, StatusChange, ValidatorTotalReward } from '../types';
-export { ValidatorModel, ValidatorSchema, NominationSchema,
+export { ValidatorModel, ValidatorSchema, NominationSchema, NominatorSchema,
   NominationModel, ChainInfoSchema, ChainInfoModel, UnclaimedEraInfoSchema, IUnclaimedEraInfo,
   IStashInfo, StashInfoSchema };
 
@@ -87,20 +87,24 @@ const NominationSchema: Schema = new Schema({
       }
     ]
   },
-  nominators: [{
-    address: String,
-    targets: [String],
-    balance: {
-      lockedBalance: {type: String, set: toHexString},
-      freeBalance: {type: String, set: toHexString},
-    },
-  }],
+  nominators: [String],
   commission: Number,
   apy: Number,
   validator: String
 });
 
 const NominationModel: Model<INomination> = model('Nomination', NominationSchema);
+
+const NominatorSchema: Schema = new Schema({
+  address: String,
+  targets: [String],
+  balance: {
+    lockedBalance: {type: String, set: toHexString},
+    freeBalance: {type: String, set: toHexString},
+  },
+});
+
+NominatorSchema.index({'address': 1}, {unique: true});
 
 function toHexString(v: bigint) {
   return v.toString(10);

@@ -132,12 +132,17 @@ export class Scheduler {
       commission: validator.prefs.commissionPct(),
       apy: apy,
       identity: validator.identity,
-      nominators: validator.nominators,
+      nominators: validator.nominators.map((n)=>{
+        return n.address;
+      }),
       commissionChanged: commissionChanged,
     };
     this.db.saveValidatorUnclaimedEras(validator.accountId, unclaimedEras?.map((era)=>{
       return era.era.toNumber();
     })!);
     this.db.saveValidatorNominationData(validator.accountId, data);
+    for(let i = 0; i < validator.nominators.length; i++) {
+      await this.db.saveNominator(validator.nominators[i], era);
+    }
   }
 }
