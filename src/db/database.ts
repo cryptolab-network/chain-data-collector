@@ -335,10 +335,7 @@ export class DatabaseHandler {
   }
 
   __validateNominationInfo(id: string, data: any) {
-    if(['1REAJ1k691g5Eqqg9gL7vvZCBG7FCCZ8zgQkZWd4va5ESih', '14xKzzU1ZYDnzFj7FgdtDAYSMJNARjDc2gNw4XAFDgr4uXgp', '1zugcacYFxX3HveFpJVUShjfb3KyaomfVqMTFoxYuUWCdD8',
-    '13eKBARPFWBdXJAKg4fBTNUfcz4YAYfDTetRRApuz1kTDVDg', '1zugcarJnZ4ft2PiJoGg6DgmZjnKNBrcKTFrAzhGPCX6bJ5'].find((element) => element === id)) {
-      return false;
-    }
+   
     if(!Number.isInteger(data.era)) {
       console.error('data.era is not an integer');
       console.error(id);
