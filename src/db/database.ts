@@ -210,10 +210,7 @@ export class DatabaseHandler {
       if(balance.freeBalance !== data.balance.freeBalance || balance.lockedBalance !== data.balance.lockedBalance) {
         this.NominatorModel?.updateOne({address: data.address}, {
           $set: { 
-            balance: {
-            freeBalance: data.balance.freeBalance,
-            lockedBalance: data.balance.lockedBalance,
-            },
+            balance: data.balance.exportString(),
           },
         }).exec().catch((err)=>{
           console.error(err);
@@ -224,10 +221,7 @@ export class DatabaseHandler {
         {
           address: data.address,
           targets: data.targets,
-          balance: {
-            freeBalance: data.balance.freeBalance,
-            lockedBalance: data.balance.lockedBalance,
-          },
+          balance: data.balance.exportString(),
         }).catch((err)=>{
         console.error(err);
       });
