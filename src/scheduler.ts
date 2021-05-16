@@ -6,6 +6,7 @@ import { CronJob } from 'cron';
 import { BalancedNominator, Validator } from "./types";
 import { OneKvHandler } from "./oneKvData";
 import { RewardCalc } from "./rewardCalc";
+const keys = require('../config/keys');
 
 const KUSAMA_DECIMAL = 1000000000000;
 
@@ -20,7 +21,7 @@ export class Scheduler {
     this.cacheData = cacheData;
     this.db = db;
     this.isCaching = false;
-    this.oneKvHandler= new OneKvHandler(this.chainData, this.cacheData, this.db);
+    this.oneKvHandler= new OneKvHandler(this.chainData, this.cacheData, this.db, keys.API_1KV_KUSAMA);
   }
 
   start() {

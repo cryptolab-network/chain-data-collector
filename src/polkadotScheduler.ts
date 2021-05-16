@@ -6,6 +6,7 @@ import { CronJob } from 'cron';
 import { BalancedNominator, Validator } from "./types";
 import { OneKvHandler } from "./oneKvData";
 import { RewardCalc } from "./rewardCalc";
+const keys = require('../config/keys');
 
 const POLKADOT_DECIMAL = 10000000000;
 
@@ -14,11 +15,13 @@ export class Scheduler {
   cacheData: Cache
   db: DatabaseHandler
   isCaching: boolean
+  oneKvHandler: OneKvHandler
   constructor(chainData: ChainData, db: DatabaseHandler, cacheData: Cache) {
     this.chainData = chainData;
     this.cacheData = cacheData;
     this.db = db;
     this.isCaching = false;
+    this.oneKvHandler= new OneKvHandler(this.chainData, this.cacheData, this.db, keys.API_1KV_POLKADOT);
   }
 
   start() {
@@ -61,6 +64,7 @@ export class Scheduler {
         this.cacheData.update('nominators', nominators.map((n)=>{
           return n?.exportString();
         }));
+        await this.cacheOneKVInfo(validatorWaitingInfo.validators);
         console.log('Polkadot scheduler ends');
       } catch (err){
         console.log(err);
@@ -69,6 +73,13 @@ export class Scheduler {
       this.isCaching = false;
     }, null, true, 'America/Los_Angeles', null, true);
     job.start();
+  }
+
+  private async cacheOneKVInfo(validators: (Validator | undefined)[]) {
+    const oneKvSummary = await this.oneKvHandler.getValidValidators(validators);
+    this.cacheData.update<any>('onekv', oneKvSummary.toJSON());
+    const oneKvNominators = await this.oneKvHandler.getOneKvNominators();
+    this.cacheData.update<OneKvNominatorSummary>('oneKvNominators', oneKvNominators);
   }
 
   private async updateActiveEra() {

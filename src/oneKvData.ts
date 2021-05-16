@@ -2,11 +2,8 @@ import axios from 'axios';
 import moment from 'moment';
 import { ChainData } from './chainData';
 import { Cache } from './cacheData';
-import { set } from 'mongoose';
 import { DatabaseHandler } from './db/database';
 import { Validator } from './types';
-const keys = require('../config/keys');
-const NODE_RPC_URL = keys.API_1KV_KUSAMA;
 
 export class OneKvSummary {
   activeEra: number
@@ -182,14 +179,16 @@ export class OneKvHandler {
   chaindata: ChainData
   cachedata: Cache
   db: DatabaseHandler
-  constructor(chaindata: ChainData, cachedata: Cache, db: DatabaseHandler) {
+  NODE_RPC_URL: String
+  constructor(chaindata: ChainData, cachedata: Cache, db: DatabaseHandler, url: String) {
     this.chaindata = chaindata;
     this.cachedata = cachedata;
     this.db = db;
+    this.NODE_RPC_URL = url;
   }
 
   async getOneKvNominators() {
-    let res = await axios.get<OneKvNominatorInfo[]>(`${NODE_RPC_URL}/nominators`);
+    let res = await axios.get<OneKvNominatorInfo[]>(`${this.NODE_RPC_URL}/nominators`);
     if (res.status !== 200) {
       console.log(`no data`)
       throw new Error('Failed to fetch 1kv nominators.');
@@ -220,7 +219,8 @@ export class OneKvHandler {
   }
 
   async getValidValidators(validators: (Validator | undefined)[]) {
-    const res = await axios.get<OneKvValidatorInfo[]>(`${NODE_RPC_URL}/valid`);
+    console.log(`${this.NODE_RPC_URL}/valid`);
+    const res = await axios.get<OneKvValidatorInfo[]>(`${this.NODE_RPC_URL}/valid`);
     if (res.status !== 200) {
       console.log(`no data`)
       throw new Error(
