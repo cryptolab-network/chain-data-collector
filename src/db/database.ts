@@ -184,6 +184,31 @@ export class DatabaseHandler {
     }
   }
 
+  async saveNominators(data: BalancedNominator[], era: number) {
+    try {
+      const script: any[] = [];
+      data.forEach((nominator) => {
+        script.push(
+          {
+            updateOne :
+            {
+              "filter": {address: nominator.address},
+              "update": {
+                  address: nominator.address,
+                  targets: nominator.targets,
+                  balance: nominator.balance.exportString(),
+                },
+              "upsert": true,
+            }
+          }
+        );
+      });
+      await this.NominatorModel?.bulkWrite(script);
+    } catch(err) {
+      console.error(err);
+    }
+  }
+
   async saveNominator(data: BalancedNominator, era: number) {
     const nominator = await this.NominatorModel?.findOne({
       address: data.address,

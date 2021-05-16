@@ -10,6 +10,8 @@ const keys = require('../config/keys');
 
 const KUSAMA_DECIMAL = 1000000000000;
 
+let nominatorCache = {};
+
 export class Scheduler {
   chainData: ChainData
   cacheData: Cache
@@ -142,8 +144,28 @@ export class Scheduler {
       return era.era.toNumber();
     })!);
     this.db.saveValidatorNominationData(validator.accountId, data);
-    for(let i = 0; i < validator.nominators.length; i++) {
-      await this.db.saveNominator(validator.nominators[i], era);
+    await this.saveNominators(validator, data, era);
+  }
+
+  private async saveNominators(validator: Validator, data: { era: number; exposure: import("e:/git/chain-data-collector/src/types").Exposure; commission: number; apy: number; identity: import("e:/git/chain-data-collector/src/types").Identity | undefined; nominators: string[]; commissionChanged: number; }, era: number) {
+    this.db.saveValidatorNominationData(validator.accountId, data);
+    for (let i = 0; i < validator.nominators.length; i++) {
+      (nominatorCache as any)[validator.nominators[i].address] = validator.nominators[i];
+      //await this.db.saveNominator(validator.nominators[i], era);
+    }
+
+    let i = 1;
+    let tmp = [];
+    for (const address in nominatorCache) {
+      tmp.push((nominatorCache as any)[address]);
+      if (i % 500 === 0) {
+        await this.db.saveNominators(tmp, era);
+        tmp = [];
+      }
+      i++;
+    }
+    if (tmp.length > 0) {
+      await this.db.saveNominators(tmp, era);
     }
   }
 }

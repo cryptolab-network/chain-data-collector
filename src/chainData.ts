@@ -16,6 +16,12 @@ class ChainData {
     this.api = await ApiPromise.create({
       provider: new WsProvider(this.url, 5000),
     });
+    this.api.on('disconnected', ()=>{
+
+    });
+    this.api.on('error', ()=>{
+
+    });
   }
 
   getActiveEraIndex = async () => {
