@@ -3,7 +3,7 @@ import { Cache } from './cacheData';
 import { OneKvNominatorSummary, OneKvSummary } from './oneKvData';
 import { DatabaseHandler } from "./db/database";
 import { CronJob } from 'cron';
-import { BalancedNominator, Validator } from "./types";
+import { BalancedNominator, Validator, Exposure, Identity } from "./types";
 import { OneKvHandler } from "./oneKvData";
 import { RewardCalc } from "./rewardCalc";
 const keys = require('../config/keys');
@@ -134,7 +134,7 @@ export class Scheduler {
     await this.saveNominators(validator, data, era);
   }
 
-  private async saveNominators(validator: Validator, data: { era: number; exposure: import("e:/git/chain-data-collector/src/types").Exposure; commission: number; apy: number; identity: import("e:/git/chain-data-collector/src/types").Identity | undefined; nominators: string[]; commissionChanged: number; }, era: number) {
+  private async saveNominators(validator: Validator, data: { era: number; exposure: Exposure; commission: number; apy: number; identity: Identity | undefined; nominators: string[]; commissionChanged: number; }, era: number) {
     await this.db.saveValidatorNominationData(validator.accountId, data);
     for (let i = 0; i < validator.nominators.length; i++) {
       (nominatorCache as any)[validator.nominators[i].address] = validator.nominators[i];
