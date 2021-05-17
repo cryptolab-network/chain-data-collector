@@ -22,7 +22,7 @@
   },
   "homepage": "https://github.com/cryptolab-network/chain-data-collector#readme",
   "dependencies": {
-    "@polkadot/api": "^4.5.1",
+    "@polkadot/api": "^4.10.1",
     "async-lock": "^1.2.8",
     "axios": "^0.21.1",
     "cron": "^1.8.2",
