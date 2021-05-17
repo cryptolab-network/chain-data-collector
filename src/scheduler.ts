@@ -143,7 +143,6 @@ export class Scheduler {
     this.db.saveValidatorUnclaimedEras(validator.accountId, unclaimedEras?.map((era)=>{
       return era.era.toNumber();
     })!);
-    this.db.saveValidatorNominationData(validator.accountId, data);
     await this.saveNominators(validator, data, era);
   }
 
