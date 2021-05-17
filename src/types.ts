@@ -241,13 +241,19 @@ class NominationDbSchema {
   commission: number
   apy: number
   validator: string
-  constructor(era: number, exposure: Exposure, nominators: string[], commission: number, apy: number, validator: string) {
+  total: string
+  constructor(era: number, exposure: Exposure, nominators: string[], commission: number, apy: number, validator: string, total: string | bigint) {
     this.era = era;
     this.exposure = exposure;
     this.nominators = nominators;
     this.commission = commission;
     this.apy = apy;
     this.validator = validator;
+    if(typeof total === 'bigint') {
+      this.total = __toHexString(total);
+    } else {
+      this.total = total;
+    }
   }
 
   exportString() {
@@ -258,6 +264,7 @@ class NominationDbSchema {
       commission: this.commission,
       apy: this.apy,
       validator: this.validator,
+      total: this.total,
     };
   }
 }

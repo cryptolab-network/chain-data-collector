@@ -90,7 +90,8 @@ const NominationSchema: Schema = new Schema({
   nominators: [String],
   commission: Number,
   apy: Number,
-  validator: String
+  validator: String,
+  total: {type: String, set: toHexString},
 });
 
 const NominationModel: Model<INomination> = model('Nomination', NominationSchema);

@@ -140,10 +140,10 @@ export class DatabaseHandler {
         return false;
       }
       const { validator, objectData } = await this.getValidatorStatus(id);
+      const nData = new NominationDbSchema(data.era, data.exposure, data.nominators, data.commission, data.apy, id, data.total);
       if(validator === undefined || validator.length === 0) {
         const vData = new ValidatorDbSchema(id, new IdentityDbSchema(data.identity.getIdentity()), new StatusChange(0));
         await this.ValidatorModel?.create(vData).catch((err: any) => console.error(err));
-        const nData = new NominationDbSchema(data.era, data.exposure, data.nominators, data.commission, data.apy, id);
         await this.NominationModel?.create(nData.exportString()).catch((err: any) => console.error(err));
       } else {
         await this.ValidatorModel?.findOneAndUpdate({
@@ -157,24 +157,10 @@ export class DatabaseHandler {
         if(nomination !== null) { // the data of this era exist, dont add a new one
           const result = await this.NominationModel?.findOneAndUpdate({
             era: data.era, validator: id,
-          }, {
-            era: data.era,
-            validator: id,
-            exposure: data.exposure.exportString(),
-            nominators: data.nominators,
-            commission: data.commission,
-            apy: data.apy,
-          }, {useFindAndModify: false}).exec().catch((err)=>{console.log(err)});
+          }, nData.exportString(), {useFindAndModify: false}).exec().catch((err)=>{console.log(err)});
           return true;
         }
-        await this.NominationModel?.create({
-          era: data.era,
-          exposure: data.exposure.exportString(),
-          nominators: data.nominators,
-          commission: data.commission,
-          apy: data.apy,
-          validator: id
-        });
+        await this.NominationModel?.create(nData.exportString());
       }
       return true;
     } catch (err) {
@@ -411,3 +397,13 @@ export class DatabaseHandler {
     return result;
   }
 }
+
+const __toHexString = (v: bigint) => {
+  let hex = v.toString(16);
+  if(hex.length % 2 === 1) {
+    hex = '0' + hex;
+  }
+  hex = '0x' + hex;
+  return hex;
+}
+

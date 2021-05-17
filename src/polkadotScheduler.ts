@@ -126,6 +126,10 @@ export class Scheduler {
       nominators: validator.nominators.map((n)=>{
         return n.address;
       }),
+      total: validator.nominators.reduce((acc, n)=>{
+        acc += n.balance.lockedBalance;
+        return acc;
+      }, BigInt(0)),
       commissionChanged: commissionChanged,
     };
     this.db.saveValidatorUnclaimedEras(validator.accountId, unclaimedEras?.map((era)=>{
