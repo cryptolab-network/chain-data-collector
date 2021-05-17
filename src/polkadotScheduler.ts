@@ -42,7 +42,6 @@ export class Scheduler {
       this.isCaching = true;
       try {
         console.log('Polkadot scheduler starts');
-        nominatorCache = {};
         await this.updateActiveEra();
         const activeEra = await this.chainData.getActiveEraIndex();
         const eraReward = await this.chainData.getEraTotalReward(activeEra - 1);
@@ -50,12 +49,28 @@ export class Scheduler {
         console.log('era reward: ' + eraReward);
         const validatorWaitingInfo = await this.chainData.getValidatorWaitingInfo();
         console.log('Write to database');
+        nominatorCache = {};
         for(let i = 0; i < validatorWaitingInfo.validators.length; i++) {
           const validator = validatorWaitingInfo.validators[i];
           if(validator !== undefined && eraReward !== undefined) {
             await this.makeValidatorInfoOfEra(validator, eraReward, activeEra, validatorCount);
           }
         }
+        console.log('Write Nominator Data to database');
+        let i = 1;
+        let tmp = [];
+        for (const address in nominatorCache) {
+          tmp.push((nominatorCache as any)[address]);
+          if (i % 500 === 0) {
+            await this.db.saveNominators(tmp, activeEra);
+            tmp = [];
+          }
+          i++;
+        }
+        if (tmp.length > 0) {
+          await this.db.saveNominators(tmp, activeEra);
+        }
+        console.log('Write Nominator Data to database ends');
         this.cacheData.update('validDetailAll', { 
           valid: validatorWaitingInfo.validators.map(v => {
             if(v !== undefined) {
@@ -142,20 +157,6 @@ export class Scheduler {
     await this.db.saveValidatorNominationData(validator.accountId, data);
     for (let i = 0; i < validator.nominators.length; i++) {
       (nominatorCache as any)[validator.nominators[i].address] = validator.nominators[i];
-    }
-
-    let i = 1;
-    let tmp = [];
-    for (const address in nominatorCache) {
-      tmp.push((nominatorCache as any)[address]);
-      if (i % 500 === 0) {
-        await this.db.saveNominators(tmp, era);
-        tmp = [];
-      }
-      i++;
-    }
-    if (tmp.length > 0) {
-      await this.db.saveNominators(tmp, era);
     }
   }
 }
