@@ -1,5 +1,5 @@
 import { ChainData } from "./chainData";
-import { Cache } from './cacheData';
+import { Cache } from './cacheRedis';
 import { OneKvNominatorSummary, OneKvSummary } from './oneKvData';
 import { DatabaseHandler } from "./db/database";
 import { CronJob } from 'cron';

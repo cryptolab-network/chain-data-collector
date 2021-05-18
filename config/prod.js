@@ -10,5 +10,7 @@ module.exports = {
   MONGO_PORT: process.env.MONGO_PORT,
   MONGO_DBNAME: process.env.MONGO_DBNAME,
   MONGO_DBNAME_POLKADOT: process.env.MONGO_DBNAME_POLKADOT,
-  PAGE_SIZE: process.env.PAGE_SIZE
+  PAGE_SIZE: process.env.PAGE_SIZE,
+  REDIS_URL: process.env.REDIS_URL,
+  REDIS_PORT: process.env.REDIS_PORT,
 }

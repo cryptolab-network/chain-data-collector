@@ -1,5 +1,6 @@
 import { ChainData } from './src/chainData';
-import { Cache } from './src/cacheData';
+// import { Cache } from './src/cacheData';
+import { Cache } from './src/cacheRedis';
 import { DatabaseHandler } from './src/db/database';
 import { Scheduler } from './src/scheduler';
 import { Scheduler as PolkadotScheduler } from  './src/polkadotScheduler';
@@ -39,7 +40,7 @@ async function initKusama() {
     const chainData = new ChainData(keys.KUSAMA_WSS);
     await chainData.connect();
     const cacheFolder = path.join(__dirname, './cache/kusama');
-    const cacheData = new Cache(cacheFolder);
+    const cacheData = new Cache('KSM', keys.REDIS_URL, keys.REDIS_PORT);
     const db = new DatabaseHandler();
     await db.connect(keys.MONGO_ACCOUNT, keys.MONGO_PASSWORD, keys.MONGO_URL, keys.MONGO_PORT, keys.MONGO_DBNAME);
     const rpcListener = new RpcListener(chainData, db, KUSAMA_DECIMAL, 'KSM');
@@ -56,7 +57,7 @@ async function initPolkadot() {
     const chainData = new ChainData(keys.POLKADOT_WSS);
     await chainData.connect();
     const cacheFolder = path.join(__dirname, './cache/polkadot');
-    const cacheData = new Cache(cacheFolder);
+    const cacheData = new Cache('DOT', keys.REDIS_URL, keys.REDIS_PORT);
     const db = new DatabaseHandler();
     await db.connect(keys.MONGO_ACCOUNT, keys.MONGO_PASSWORD, keys.MONGO_URL, keys.MONGO_PORT, keys.MONGO_DBNAME_POLKADOT);
     const rpcListener = new RpcListener(chainData, db, POLKADOT_DECIMAL, 'DOT');
