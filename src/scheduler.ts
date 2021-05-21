@@ -11,6 +11,7 @@ const keys = require('../config/keys');
 const KUSAMA_DECIMAL = 1000000000000;
 
 let nominatorCache = {};
+let validatorCache = {};
 
 export class Scheduler {
   chainData: ChainData
@@ -62,16 +63,30 @@ export class Scheduler {
         console.timeEnd('[Kusama] Retrieving chain data');
         console.time('[Kusama] Write Validator Data');
         nominatorCache = {};
+        validatorCache = {};
         for(let i = 0; i < validatorWaitingInfo.validators.length; i++) {
           const validator = validatorWaitingInfo.validators[i];
           if(validator !== undefined && eraReward !== undefined) {
             await this.makeValidatorInfoOfEra(validator, eraReward, activeEra, validatorCount);
           }
         }
-        console.timeEnd('[Kusama] Write Validator Data');
-        console.time('[Kusama] Write Nominator Data');
         let i = 1;
         let tmp = [];
+        for (const address in validatorCache) {
+          tmp.push((validatorCache as any)[address]);
+          if (i % 100 === 0) {
+            await this.db.saveMultipleValidatorNominationData(tmp, activeEra);
+            tmp = [];
+          }
+          i++;
+        }
+        if (tmp.length > 0) {
+          await this.db.saveMultipleValidatorNominationData(tmp, activeEra);
+        }
+        console.timeEnd('[Kusama] Write Validator Data');
+        console.time('[Kusama] Write Nominator Data');
+        i = 1;
+        tmp = [];
         for (const address in nominatorCache) {
           tmp.push((nominatorCache as any)[address]);
           if (i % 500 === 0) {
@@ -167,15 +182,20 @@ export class Scheduler {
         return acc;
       }, BigInt(0)),
       commissionChanged: commissionChanged,
+      id: validator.accountId,
     };
     this.db.saveValidatorUnclaimedEras(validator.accountId, unclaimedEras?.map((era)=>{
       return era.era.toNumber();
     })!);
-    await this.saveNominators(validator, data, era);
+    this.saveValidatorNominationData(validator.accountId, data);
+    this.saveNominators(validator, data, era);
   }
 
-  private async saveNominators(validator: Validator, data: { era: number; exposure: Exposure; commission: number; apy: number; identity: Identity | undefined; nominators: string[]; commissionChanged: number; }, era: number) {
-    await this.db.saveValidatorNominationData(validator.accountId, data);
+  private saveValidatorNominationData(validator: string, data: { era: number; exposure: Exposure; commission: number; apy: number; identity: Identity | undefined; nominators: string[]; commissionChanged: number; }) {
+    (validatorCache as any)[validator] = data;
+  }
+
+  private saveNominators(validator: Validator, data: { era: number; exposure: Exposure; commission: number; apy: number; identity: Identity | undefined; nominators: string[]; commissionChanged: number; }, era: number) {
     for (let i = 0; i < validator.nominators.length; i++) {
       (nominatorCache as any)[validator.nominators[i].address] = validator.nominators[i];
     }

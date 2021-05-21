@@ -1,5 +1,5 @@
 import { Mongoose, Schema, Model, Document, set } from 'mongoose';
-import { Identity, ValidatorDbSchema, NominationDbSchema, StatusChange, IdentityDbSchema, ValidatorEraReward, BalancedNominator, Balance } from '../types';
+import { Identity, ValidatorDbSchema, NominationDbSchema, StatusChange, IdentityDbSchema, ValidatorEraReward, BalancedNominator, Balance, Exposure } from '../types';
 import { ValidatorSchema, ValidatorModel, NominationModel, NominationSchema, NominatorSchema,
   ChainInfoModel, ChainInfoSchema, IUnclaimedEraInfo, UnclaimedEraInfoSchema, IStashInfo, StashInfoSchema } from './schema';
 import AsyncLock from 'async-lock';
@@ -168,6 +168,53 @@ export class DatabaseHandler {
       console.log(`id = ${id}`);
       return false;
     }
+  }
+
+  async saveMultipleValidatorNominationData(data: any[], era: number) {
+    
+    try {
+      // validator
+      let script: any[] = [];
+      data.forEach((validator) => {
+        script.push(
+          {
+            updateOne :
+            {
+              "filter": {id: validator.id},
+              "update": {
+                  id: validator.id,
+                  identity: new IdentityDbSchema(validator.identity.getIdentity()),
+                  statusChange: {
+                    commission: validator.commissionChanged
+                  },
+                },
+              "upsert": true,
+            }
+          }
+        );
+      });
+      await this.ValidatorModel?.bulkWrite(script);
+      //nomination
+      script = [];
+      data.forEach((validator) => {
+        const nData = new NominationDbSchema(validator.era, validator.exposure, validator.nominators,
+          validator.commission, validator.apy, validator.id, validator.total);
+        script.push(
+          {
+            updateOne :
+            {
+              "filter": {validator: validator.id},
+              "update": nData.exportString(),
+              "upsert": true,
+            }
+          }
+        );
+      });
+      await this.NominationModel?.bulkWrite(script);
+    } catch(err) {
+      console.error(err);
+    }
+
   }
 
   async saveNominators(data: BalancedNominator[], era: number) {

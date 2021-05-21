@@ -11,6 +11,7 @@ const keys = require('../config/keys');
 const POLKADOT_DECIMAL = 10000000000;
 
 let nominatorCache = {};
+let validatorCache = {};
 
 export class Scheduler {
   chainData: ChainData
@@ -55,16 +56,30 @@ export class Scheduler {
         console.timeEnd('[Polkadot] Retrieving chain data');
         console.time('[Polkadot] Write Validator Data');
         nominatorCache = {};
+        validatorCache = {};
         for(let i = 0; i < validatorWaitingInfo.validators.length; i++) {
           const validator = validatorWaitingInfo.validators[i];
           if(validator !== undefined && eraReward !== undefined) {
             await this.makeValidatorInfoOfEra(validator, eraReward, activeEra, validatorCount);
           }
         }
-        console.timeEnd('[Polkadot] Write Validator Data');
-        console.time('[Polkadot] Write Nominator Data');
         let i = 1;
         let tmp = [];
+        for (const address in validatorCache) {
+          tmp.push((validatorCache as any)[address]);
+          if (i % 100 === 0) {
+            await this.db.saveMultipleValidatorNominationData(tmp, activeEra);
+            tmp = [];
+          }
+          i++;
+        }
+        if (tmp.length > 0) {
+          await this.db.saveMultipleValidatorNominationData(tmp, activeEra);
+        }
+        console.timeEnd('[Polkadot] Write Validator Data');
+        console.time('[Polkadot] Write Nominator Data');
+        i = 1;
+        tmp = [];
         for (const address in nominatorCache) {
           tmp.push((nominatorCache as any)[address]);
           if (i % 500 === 0) {
@@ -154,15 +169,20 @@ export class Scheduler {
         return acc;
       }, BigInt(0)),
       commissionChanged: commissionChanged,
+      id: validator.accountId,
     };
     this.db.saveValidatorUnclaimedEras(validator.accountId, unclaimedEras?.map((era)=>{
       return era.era.toNumber();
     })!);
-    await this.saveNominators(validator, data, era);
+    this.saveValidatorNominationData(validator.accountId, data);
+    this.saveNominators(validator, data, era);
+  }
+
+  private async saveValidatorNominationData(validator: string, data: { era: number; exposure: Exposure; commission: number; apy: number; identity: Identity | undefined; nominators: string[]; commissionChanged: number; }) {
+    (validatorCache as any)[validator] = data;
   }
 
   private async saveNominators(validator: Validator, data: { era: number; exposure: Exposure; commission: number; apy: number; identity: Identity | undefined; nominators: string[]; commissionChanged: number; }, era: number) {
-    await this.db.saveValidatorNominationData(validator.accountId, data);
     for (let i = 0; i < validator.nominators.length; i++) {
       (nominatorCache as any)[validator.nominators[i].address] = validator.nominators[i];
     }
