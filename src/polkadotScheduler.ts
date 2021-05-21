@@ -100,7 +100,7 @@ export class Scheduler {
             }
           }) 
         });
-        const nominators = await this.chainData.getNominators();
+        const nominators = validatorWaitingInfo.balancedNominators;
         this.cacheData.update('nominators', nominators.map((n)=>{
           return n?.exportString();
         }));
