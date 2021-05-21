@@ -53,24 +53,23 @@ export class Scheduler {
         await this.updateActiveEra();
         console.timeEnd('[Kusama] Update active era');
 
-        console.time('[Polkadot] Retrieving chain data');
+        console.time('[Kusama] Retrieving chain data');
         const activeEra = await this.chainData.getActiveEraIndex();
         const eraReward = await this.chainData.getEraTotalReward(activeEra - 1);
         const validatorCount = await this.chainData.getCurrentValidatorCount();
         console.log('era reward: ' + eraReward);
         const validatorWaitingInfo = await this.chainData.getValidatorWaitingInfo();
-        console.timeEnd('[Polkadot] Retrieving chain data');
-        console.time('[Polkadot] Write Validator Data');
+        console.timeEnd('[Kusama] Retrieving chain data');
+        console.time('[Kusama] Write Validator Data');
         nominatorCache = {};
-        console.timeEnd('[Polkadot] Write Validator Data');
-        console.time('[Polkadot] Write Nominator Data');
         for(let i = 0; i < validatorWaitingInfo.validators.length; i++) {
           const validator = validatorWaitingInfo.validators[i];
           if(validator !== undefined && eraReward !== undefined) {
             await this.makeValidatorInfoOfEra(validator, eraReward, activeEra, validatorCount);
           }
         }
-        console.log('Write Nominator Data to database');
+        console.timeEnd('[Kusama] Write Validator Data');
+        console.time('[Kusama] Write Nominator Data');
         let i = 1;
         let tmp = [];
         for (const address in nominatorCache) {
@@ -84,8 +83,8 @@ export class Scheduler {
         if (tmp.length > 0) {
           await this.db.saveNominators(tmp, activeEra);
         }
-        console.timeEnd('[Polkadot] Write Nominator Data');
-        console.time('[Polkadot] Update Cache Data');
+        console.timeEnd('[Kusama] Write Nominator Data');
+        console.time('[Kusama] Update Cache Data');
         this.cacheData.update('validDetailAll', { 
           valid: validatorWaitingInfo.validators.map(v => {
             if(v !== undefined) {
@@ -99,7 +98,7 @@ export class Scheduler {
         }));
         console.log('length ' +　validatorWaitingInfo.validators.length);
         await this.cacheOneKVInfo(validatorWaitingInfo.validators);
-        console.timeEnd('[Polkadot] Update Cache Data');
+        console.timeEnd('[Kusama] Update Cache Data');
         console.log('Kusama scheduler ends');
       } catch (err){
         console.log(err);
