@@ -137,7 +137,7 @@ class ChainData {
     let validators: (Validator | undefined) [] = [];
     let nextElects: (Validator | undefined) [] = [];
     let intentions: (Validator | undefined) [] = [];
-
+    console.time('[ChainData] Retrieving data from chain');
     let [
       validatorAddresses,
       nextElected,
@@ -155,7 +155,8 @@ class ChainData {
     if(validatorAddresses === undefined || waitingInfo === undefined || nominators === undefined) {
       throw new Error('Failed to get chain data');
     }
-
+    console.timeEnd('[ChainData] Retrieving data from chain');
+    console.time('[ChainData] Retrieving staking for validators');
     validators = await Promise.all(
       validatorAddresses.map((authorityId) => 
         this.api!.derive.staking.query(authorityId, {
@@ -171,6 +172,8 @@ class ChainData {
         })
       )
     )
+    console.timeEnd('[ChainData] Retrieving staking for validators');
+    console.time('[ChainData] Retrieving identity for validators');
     validators = await Promise.all(
       validators.map((validator) => {
         if(validator !== undefined) {
@@ -189,7 +192,46 @@ class ChainData {
         return validator;
       }
     ));
-
+    console.timeEnd('[ChainData] Retrieving identity for validators');
+    console.time('[ChainData] Retrieving next elected');
+    nextElects = await Promise.all(
+      nextElected.map((accountId) => 
+        this.api!.derive.staking.query(accountId, {
+          withDestination: false,
+          withExposure: true,
+          withLedger: true,
+          withNominations: true,
+          withPrefs: true,
+        }).then((validator) => {
+          // console.log(validator.stakingLedger.toString());
+          return new Validator(accountId.toString(),
+            validator.exposure, validator.stakingLedger, validator.validatorPrefs);
+        })
+      )
+    )
+    console.timeEnd('[ChainData] Retrieving next elected');
+    console.time('[ChainData] Retrieving identity for next elected');
+    nextElects = await Promise.all(
+      nextElects.map((nextElect) => {
+        if(nextElect !== undefined) {
+          if(nextElect.accountId !== undefined) {
+            this.api!.derive.accounts.info(nextElect.accountId).then(({ identity }) => {
+              const _identity = new Identity(nextElect.accountId.toString());
+              _identity.display = identity.display;
+              _identity.displayParent = identity.displayParent;
+              nextElect.identity = _identity;
+              nextElect.totalNominators = 0;
+              nextElect.activeNominators = nextElect.exposure.others.length;
+              return nextElect;
+            });
+          }
+        }
+        return nextElect;
+      }
+    ));
+    console.timeEnd('[ChainData] Retrieving identity for next elected');
+    validators = validators.concat(nextElects);
+    console.time('[ChainData] Retrieving identity for waitings');
     nextElects = await Promise.all(
       nextElected.map((accountId) => 
         this.api!.derive.staking.query(accountId, {
@@ -242,21 +284,29 @@ class ChainData {
         })
       })
     )
-
+    console.timeEnd('[ChainData] Retrieving identity for waitings');
     validators = validators.concat(intentions);
-    
+    console.time('[ChainData] Retrieving balance for waitings');
     let balancedNominators = await Promise.all(
       nominators.map((nominator) => 
         this.api!.derive.balances.all(nominator[0].toHuman()?.toString()!).then((balance) => {
           const _balance = new Balance(balance.freeBalance.toBigInt(), balance.lockedBalance.toBigInt());
           const targets: string[] = [];
-          nominator[1].unwrap().targets.forEach((target)=>{
-            targets.push(target.toString());
-          });
-          return new BalancedNominator(nominator[0].toHuman()?.toString()!, targets, _balance);
+          try {
+            nominator[1].unwrap().targets.forEach((target)=>{
+              targets.push(target.toString());
+            });
+            return new BalancedNominator(nominator[0].toHuman()?.toString()!, targets, _balance);
+          } catch(err) {
+            console.error(err);
+            console.log(nominator);
+            return new BalancedNominator(nominator[0].toHuman()?.toString()!, targets, _balance);
+          }
         })
       )
     );
+    console.timeEnd('[ChainData] Retrieving balance for waitings');
+
     balancedNominators.forEach(nominator => {
       nominator?.targets.forEach(target => {
         validators.forEach(validator => {
