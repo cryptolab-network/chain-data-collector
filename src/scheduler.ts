@@ -49,14 +49,21 @@ export class Scheduler {
       this.isCaching = true;
       try {
         console.log('Kusama scheduler starts');
+        console.time('[Kusama] Update active era');
         await this.updateActiveEra();
+        console.timeEnd('[Kusama] Update active era');
+
+        console.time('[Polkadot] Retrieving chain data');
         const activeEra = await this.chainData.getActiveEraIndex();
         const eraReward = await this.chainData.getEraTotalReward(activeEra - 1);
         const validatorCount = await this.chainData.getCurrentValidatorCount();
         console.log('era reward: ' + eraReward);
         const validatorWaitingInfo = await this.chainData.getValidatorWaitingInfo();
+        console.timeEnd('[Polkadot] Retrieving chain data');
+        console.time('[Polkadot] Write Validator Data');
         nominatorCache = {};
-        console.log('Write to database');
+        console.timeEnd('[Polkadot] Write Validator Data');
+        console.time('[Polkadot] Write Nominator Data');
         for(let i = 0; i < validatorWaitingInfo.validators.length; i++) {
           const validator = validatorWaitingInfo.validators[i];
           if(validator !== undefined && eraReward !== undefined) {
@@ -77,7 +84,8 @@ export class Scheduler {
         if (tmp.length > 0) {
           await this.db.saveNominators(tmp, activeEra);
         }
-        console.log('Write Nominator Data to database ends');
+        console.timeEnd('[Polkadot] Write Nominator Data');
+        console.time('[Polkadot] Update Cache Data');
         this.cacheData.update('validDetailAll', { 
           valid: validatorWaitingInfo.validators.map(v => {
             if(v !== undefined) {
@@ -91,6 +99,7 @@ export class Scheduler {
         }));
         console.log('length ' +　validatorWaitingInfo.validators.length);
         await this.cacheOneKVInfo(validatorWaitingInfo.validators);
+        console.timeEnd('[Polkadot] Update Cache Data');
         console.log('Kusama scheduler ends');
       } catch (err){
         console.log(err);

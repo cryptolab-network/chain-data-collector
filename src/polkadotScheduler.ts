@@ -42,13 +42,18 @@ export class Scheduler {
       this.isCaching = true;
       try {
         console.log('Polkadot scheduler starts');
+        console.time('[Polkadot] Update active era');
         await this.updateActiveEra();
+        console.timeEnd('[Polkadot] Update active era');
+
+        console.time('[Polkadot] Retrieving chain data');
         const activeEra = await this.chainData.getActiveEraIndex();
         const eraReward = await this.chainData.getEraTotalReward(activeEra - 1);
         const validatorCount = await this.chainData.getCurrentValidatorCount();
         console.log('era reward: ' + eraReward);
         const validatorWaitingInfo = await this.chainData.getValidatorWaitingInfo();
-        console.log('Write to database');
+        console.timeEnd('[Polkadot] Retrieving chain data');
+        console.time('[Polkadot] Write Validator Data');
         nominatorCache = {};
         for(let i = 0; i < validatorWaitingInfo.validators.length; i++) {
           const validator = validatorWaitingInfo.validators[i];
@@ -56,7 +61,8 @@ export class Scheduler {
             await this.makeValidatorInfoOfEra(validator, eraReward, activeEra, validatorCount);
           }
         }
-        console.log('Write Nominator Data to database');
+        console.timeEnd('[Polkadot] Write Validator Data');
+        console.time('[Polkadot] Write Nominator Data');
         let i = 1;
         let tmp = [];
         for (const address in nominatorCache) {
@@ -70,7 +76,8 @@ export class Scheduler {
         if (tmp.length > 0) {
           await this.db.saveNominators(tmp, activeEra);
         }
-        console.log('Write Nominator Data to database ends');
+        console.timeEnd('[Polkadot] Write Nominator Data');
+        console.time('[Polkadot] Update Cache Data');
         this.cacheData.update('validDetailAll', { 
           valid: validatorWaitingInfo.validators.map(v => {
             if(v !== undefined) {
@@ -83,6 +90,7 @@ export class Scheduler {
           return n?.exportString();
         }));
         await this.cacheOneKVInfo(validatorWaitingInfo.validators);
+        console.timeEnd('[Polkadot] Update Cache Data');
         console.log('Polkadot scheduler ends');
       } catch (err){
         console.log(err);
