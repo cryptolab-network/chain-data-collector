@@ -250,10 +250,16 @@ class ChainData {
         this.api!.derive.balances.all(nominator[0].toHuman()?.toString()!).then((balance) => {
           const _balance = new Balance(balance.freeBalance.toBigInt(), balance.lockedBalance.toBigInt());
           const targets: string[] = [];
-          nominator[1].unwrap().targets.forEach((target)=>{
-            targets.push(target.toString());
-          });
-          return new BalancedNominator(nominator[0].toHuman()?.toString()!, targets, _balance);
+          try {
+            nominator[1].unwrap().targets.forEach((target)=>{
+              targets.push(target.toString());
+            });
+            return new BalancedNominator(nominator[0].toHuman()?.toString()!, targets, _balance);
+          } catch(err) {
+            console.error(err);
+            console.log(nominator);
+            return new BalancedNominator(nominator[0].toHuman()?.toString()!, targets, _balance);
+          }
         })
       )
     );
