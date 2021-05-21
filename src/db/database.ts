@@ -320,13 +320,13 @@ export class DatabaseHandler {
       timestamp: timestamp,
     }).exec();
     if(record !== null) {
-      console.log('DB has an exactly the same reward record!');
-      console.log({
-        stash: stash,
-        era: era,
-        amount: amount,
-        timestamp: timestamp,
-      });
+      // console.log('DB has an exactly the same reward record!');
+      // console.log({
+      //   stash: stash,
+      //   era: era,
+      //   amount: amount,
+      //   timestamp: timestamp,
+      // });
       return;
     }
     await this.StashInfoModel?.create({
