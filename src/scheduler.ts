@@ -42,7 +42,7 @@ export class Scheduler {
   }
 
   private async fetchDataScheduler() {
-    const job = new CronJob('*/10 * * * *', async () => {
+    const job = new CronJob('*/20 * * * *', async () => {
       if(this.isCaching) {
         return;
       }

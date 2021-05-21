@@ -35,7 +35,7 @@ export class Scheduler {
     }, null, true, 'America/Los_Angeles', null, true);
     rewardCalcJob.start();
 
-    const job = new CronJob('*/15 * * * *', async () => {
+    const job = new CronJob('*/30 * * * *', async () => {
       if(this.isCaching) {
         return;
       }
