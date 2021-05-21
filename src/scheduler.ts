@@ -54,19 +54,11 @@ export class Scheduler {
         console.timeEnd('[Kusama] Update active era');
 
         console.time('[Kusama] Retrieving chain data');
-        console.time('[Kusama] Get active era index');
         const activeEra = await this.chainData.getActiveEraIndex();
-        console.timeEnd('[Kusama] Get active era index');
-        console.time('[Kusama] Get era total reward');
         const eraReward = await this.chainData.getEraTotalReward(activeEra - 1);
-        console.timeEnd('[Kusama] Get era total reward');
-        console.time('[Kusama] Get validator count');
         const validatorCount = await this.chainData.getCurrentValidatorCount();
-        console.timeEnd('[Kusama] Get validator count');
         console.log('era reward: ' + eraReward);
-        console.time('[Kusama] GetValidatorWaitingInfo');
         const validatorWaitingInfo = await this.chainData.getValidatorWaitingInfo();
-        console.timeEnd('[Kusama] GetValidatorWaitingInfo');
         console.timeEnd('[Kusama] Retrieving chain data');
         console.time('[Kusama] Write Validator Data');
         nominatorCache = {};

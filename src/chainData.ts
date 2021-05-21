@@ -137,7 +137,7 @@ class ChainData {
     let validators: (Validator | undefined) [] = [];
     let nextElects: (Validator | undefined) [] = [];
     let intentions: (Validator | undefined) [] = [];
-
+    console.time('[ChainData] Retrieving data from chain');
     let [
       validatorAddresses,
       nextElected,
@@ -155,7 +155,8 @@ class ChainData {
     if(validatorAddresses === undefined || waitingInfo === undefined || nominators === undefined) {
       throw new Error('Failed to get chain data');
     }
-
+    console.timeEnd('[ChainData] Retrieving data from chain');
+    console.time('[ChainData] Retrieving staking for validators');
     validators = await Promise.all(
       validatorAddresses.map((authorityId) => 
         this.api!.derive.staking.query(authorityId, {
@@ -171,6 +172,8 @@ class ChainData {
         })
       )
     )
+    console.timeEnd('[ChainData] Retrieving staking for validators');
+    console.time('[ChainData] Retrieving identity for validators');
     validators = await Promise.all(
       validators.map((validator) => {
         if(validator !== undefined) {
@@ -189,7 +192,8 @@ class ChainData {
         return validator;
       }
     ));
-
+    console.timeEnd('[ChainData] Retrieving identity for validators');
+    console.time('[ChainData] Retrieving next elected');
     nextElects = await Promise.all(
       nextElected.map((accountId) => 
         this.api!.derive.staking.query(accountId, {
@@ -205,7 +209,8 @@ class ChainData {
         })
       )
     )
-
+    console.timeEnd('[ChainData] Retrieving next elected');
+    console.time('[ChainData] Retrieving identity for next elected');
     nextElects = await Promise.all(
       nextElects.map((nextElect) => {
         if(nextElect !== undefined) {
@@ -224,9 +229,9 @@ class ChainData {
         return nextElect;
       }
     ));
-
+    console.timeEnd('[ChainData] Retrieving identity for next elected');
     validators = validators.concat(nextElects);
-
+    console.time('[ChainData] Retrieving identity for waitings');
     intentions = await Promise.all(
       waitingInfo.info.map((intention) => {
         return this.api!.derive.accounts.info(intention.accountId).then(({ identity }) => {
@@ -242,9 +247,9 @@ class ChainData {
         })
       })
     )
-
+    console.timeEnd('[ChainData] Retrieving identity for waitings');
     validators = validators.concat(intentions);
-    
+    console.time('[ChainData] Retrieving balance for waitings');
     let balancedNominators = await Promise.all(
       nominators.map((nominator) => 
         this.api!.derive.balances.all(nominator[0].toHuman()?.toString()!).then((balance) => {
@@ -263,6 +268,8 @@ class ChainData {
         })
       )
     );
+    console.timeEnd('[ChainData] Retrieving balance for waitings');
+
     balancedNominators.forEach(nominator => {
       nominator?.targets.forEach(target => {
         validators.forEach(validator => {

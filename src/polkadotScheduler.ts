@@ -47,19 +47,11 @@ export class Scheduler {
         console.timeEnd('[Polkadot] Update active era');
 
         console.time('[Polkadot] Retrieving chain data');
-        console.time('[Polkadot] Get active era index');
         const activeEra = await this.chainData.getActiveEraIndex();
-        console.timeEnd('[Polkadot] Get active era index');
-        console.time('[Polkadot] Get era total reward');
         const eraReward = await this.chainData.getEraTotalReward(activeEra - 1);
-        console.timeEnd('[Polkadot] Get era total reward');
-        console.time('[Polkadot] Get validator count');
         const validatorCount = await this.chainData.getCurrentValidatorCount();
-        console.timeEnd('[Polkadot] Get validator count');
         console.log('era reward: ' + eraReward);
-        console.time('[Polkadot] GetValidatorWaitingInfo');
         const validatorWaitingInfo = await this.chainData.getValidatorWaitingInfo();
-        console.timeEnd('[Polkadot] GetValidatorWaitingInfo');
         console.timeEnd('[Polkadot] Retrieving chain data');
         console.time('[Polkadot] Write Validator Data');
         nominatorCache = {};
