@@ -50,7 +50,9 @@ export class RpcListener {
       console.log(`Starts process ${this.chain} block events from block ${startBlockNumber}`);
       for (let i = startBlockNumber; i <= blockNumber; i++) {
           try {
-            console.log(`Processing ${this.chain} block ${i}`);
+            if(i % 100 === 0) {
+              console.log(`Processing ${this.chain} block ${i}`);
+            }
             // console.time('getBlockHash ' + this.chain);
             const blockHash = await this.api.rpc.chain.getBlockHash(i);
             // console.timeEnd('getBlockHash ' + this.chain);

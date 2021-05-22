@@ -203,7 +203,7 @@ export class DatabaseHandler {
           {
             updateOne :
             {
-              "filter": {validator: validator.id},
+              "filter": {validator: validator.id, era: validator.era},
               "update": nData.exportString(),
               "upsert": true,
             }
@@ -320,6 +320,30 @@ export class DatabaseHandler {
     }, {upsert: true}).exec().catch((err)=>{
       console.error(err);
     });
+  }
+
+  async saveMultipleValidatorUnclaimedEras(data: any[]) {
+    try {
+      const script: any[] = [];
+      data.forEach((validator) => {
+        script.push(
+          {
+            updateOne :
+            {
+              "filter": {validator: validator.id},
+              "update": {
+                  eras: validator.eras,
+                  validator: validator.id
+                },
+              "upsert": true,
+            }
+          }
+        );
+      });
+      await this.UnclaimedEraInfoModel?.bulkWrite(script);
+    } catch(err) {
+      console.error(err);
+    }
   }
 
   async updateValidatorTotalReward(id: string, reward: ValidatorEraReward) {

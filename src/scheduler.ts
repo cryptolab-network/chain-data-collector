@@ -12,6 +12,7 @@ const KUSAMA_DECIMAL = 1000000000000;
 
 let nominatorCache = {};
 let validatorCache = {};
+let unclaimedEraCache = {};
 
 export class Scheduler {
   chainData: ChainData
@@ -64,6 +65,7 @@ export class Scheduler {
         console.time('[Kusama] Write Validator Data');
         nominatorCache = {};
         validatorCache = {};
+        unclaimedEraCache = {};
         for(let i = 0; i < validatorWaitingInfo.validators.length; i++) {
           const validator = validatorWaitingInfo.validators[i];
           if(validator !== undefined && eraReward !== undefined) {
@@ -82,6 +84,19 @@ export class Scheduler {
         }
         if (tmp.length > 0) {
           await this.db.saveMultipleValidatorNominationData(tmp, activeEra);
+        }
+        i = 1;
+        tmp = [];
+        for (const address in unclaimedEraCache) {
+          tmp.push((unclaimedEraCache as any)[address]);
+          if (i % 100 === 0) {
+            await this.db.saveMultipleValidatorUnclaimedEras(tmp);
+            tmp = [];
+          }
+          i++;
+        }
+        if (tmp.length > 0) {
+          await this.db.saveMultipleValidatorUnclaimedEras(tmp);
         }
         console.timeEnd('[Kusama] Write Validator Data');
         console.time('[Kusama] Write Nominator Data');
@@ -184,11 +199,18 @@ export class Scheduler {
       commissionChanged: commissionChanged,
       id: validator.accountId,
     };
-    this.db.saveValidatorUnclaimedEras(validator.accountId, unclaimedEras?.map((era)=>{
+    this.saveUnclaimedEras(validator.accountId, unclaimedEras?.map((era)=>{
       return era.era.toNumber();
     })!);
     this.saveValidatorNominationData(validator.accountId, data);
     this.saveNominators(validator, data, era);
+  }
+
+  private async saveUnclaimedEras(validator: string, unclaimedEras: number[]) {
+    (unclaimedEraCache as any)[validator] = {
+      eras: unclaimedEras,
+      id: validator,
+    };
   }
 
   private saveValidatorNominationData(validator: string, data: { era: number; exposure: Exposure; commission: number; apy: number; identity: Identity | undefined; nominators: string[]; commissionChanged: number; }) {
