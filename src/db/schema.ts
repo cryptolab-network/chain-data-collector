@@ -18,6 +18,12 @@ const StashInfoSchema: Schema = new Schema({
   timestamp: Number
 })
 
+StashInfoSchema.index({
+  'stash': 1,
+  'era': 1,
+  'amount': 1,
+  'timestamp': 1,}, {unique: true, background: false});
+
 interface IEraReward extends Document {
   era: number,
     amount: number,

@@ -27,6 +27,7 @@ export class DatabaseHandler {
     const db = new Mongoose().createConnection(url, {
       useNewUrlParser: true, 
       useUnifiedTopology: true,
+      useCreateIndex: true,
       poolSize: 10
     });
     this.ValidatorModel = db.model('Validator_' + dbName, ValidatorSchema, 'validator');
@@ -384,29 +385,14 @@ export class DatabaseHandler {
 
   
   async saveRewards(stash: string, era: number, amount: number, timestamp: number) {
-    const record = await this.StashInfoModel?.findOne({
-      stash: stash,
-      era: era,
-      amount: amount,
-      timestamp: timestamp,
-    }).exec();
-    if(record !== null) {
-      // console.log('DB has an exactly the same reward record!');
-      // console.log({
-      //   stash: stash,
-      //   era: era,
-      //   amount: amount,
-      //   timestamp: timestamp,
-      // });
-      return;
-    }
     await this.StashInfoModel?.create({
       stash: stash,
       era: era,
       amount: amount,
       timestamp: timestamp,
     }).catch((err)=>{
-      console.error(err);
+      // it is ok
+      //console.error(err);
     });
   }
 
