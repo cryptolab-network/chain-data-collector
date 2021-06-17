@@ -262,7 +262,7 @@ class ChainData {
             return new BalancedNominator(nominator[0].toHuman()?.toString()!, targets, _balance);
           } catch(err) {
             console.error(err);
-            console.log(nominator);
+            console.log(nominator.toString());
             return new BalancedNominator(nominator[0].toHuman()?.toString()!, targets, _balance);
           }
         })
@@ -300,8 +300,10 @@ class ChainData {
             nominator[1].unwrap().targets.forEach((target)=>{
               targets.push(target.toString());
             });
-          } catch {
+          } catch(err) {
             targets = [];
+            console.error(err);
+            console.log(nominator.toString());
           }
           return new BalancedNominator(nominator[0].toHuman()?.toString()!, targets, _balance);
         })

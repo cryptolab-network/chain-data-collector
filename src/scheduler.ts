@@ -159,7 +159,6 @@ export class Scheduler {
       return point.points.toNumber() > 0;
     });
     const unclaimedEras = activeEras?.filter((point) => !validator.stakingLedger.claimedRewards.includes(point.era));
-
     const lastEraInfo = await this.db.getValidatorStatusOfEra(validator?.accountId!, era - 1);
     let latestCommission = 0;
     if(lastEraInfo !== undefined) {
