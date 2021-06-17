@@ -27,7 +27,7 @@ export class OneKvSummary {
       electionRate: this.electionRate,
       valid: this.valid.map((v: OneKvValidatorInfo)=>{
         return  {
-          aggregate: v.aggregate,
+          aggregate: v.score,
           rank: v.rank,
           oneKvNominated: v.oneKvNominated,
           unclaimedEra: v.unclaimedEra,
@@ -51,7 +51,7 @@ export class OneKvSummary {
 }
 
 class OneKvValidatorInfo {
-  aggregate: Aggregate
+  score: Aggregate
   rank: number
   oneKvNominated: boolean
   unclaimedEra: number[]
@@ -64,6 +64,7 @@ class OneKvValidatorInfo {
   activeNominators: number
   totalNominators: number
   detail?: Validator
+  valid: boolean
   constructor(aggregate: Aggregate,
     rank: number,
     unclaimedEra: number[],
@@ -72,7 +73,7 @@ class OneKvValidatorInfo {
     stash: string,
     identity: Identity,
     nominatedAt: number) {
-    this.aggregate = aggregate;
+    this.score = aggregate;
     this.rank = rank;
     this.oneKvNominated = false;
     this.unclaimedEra = unclaimedEra;
@@ -84,6 +85,7 @@ class OneKvValidatorInfo {
     this.elected = false;
     this.activeNominators = 0;
     this.totalNominators = 0;
+    this.valid = false;
   }
 }
 
@@ -219,8 +221,8 @@ export class OneKvHandler {
   }
 
   async getValidValidators(validators: (Validator | undefined)[]) {
-    console.log(`${this.NODE_RPC_URL}/valid`);
-    const res = await axios.get<OneKvValidatorInfo[]>(`${this.NODE_RPC_URL}/valid`);
+    console.log(`${this.NODE_RPC_URL}/candidates`);
+    const res = await axios.get<OneKvValidatorInfo[]>(`${this.NODE_RPC_URL}/candidates`);
     if (res.status !== 200) {
       console.log(`no data`)
       throw new Error(
@@ -252,7 +254,7 @@ export class OneKvHandler {
       });
       let newValid = await Promise.all(promises);
       valid = newValid.filter(function(v) {
-        return v !== undefined;
+        return v !== undefined && v.valid === true;
       }) as OneKvValidatorInfo[];
       const oneKvSummary = new OneKvSummary(activeEra, electedCount, valid);
       return oneKvSummary;
