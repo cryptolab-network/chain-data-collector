@@ -195,10 +195,12 @@ class ValidatorDbSchema {
   statusChange: StatusChange
   info?: NominationDbSchema[]
   rewards?: ValidatorTotalReward
-  constructor(id: string, identity: IdentityDbSchema, statusChange: StatusChange) {
+  stakerPoints: StakerPoint[]
+  constructor(id: string, identity: IdentityDbSchema, statusChange: StatusChange, stakerPoints: StakerPoint[]) {
     this.id = id;
     this.identity = identity;
     this.statusChange = statusChange;
+    this.stakerPoints = stakerPoints;
   }
 }
 
@@ -297,6 +299,15 @@ export class ValidatorEraReward {
   constructor(era: number, reward: number) {
     this.era = era;
     this.reward = reward;
+  }
+}
+
+export class StakerPoint {
+  era: number
+  points: number
+  constructor(era: number, points: number) {
+    this.era = era;
+    this.points = points;
   }
 }
 

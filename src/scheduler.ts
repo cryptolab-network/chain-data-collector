@@ -3,7 +3,7 @@ import { Cache } from './cacheData';
 import { OneKvNominatorSummary, OneKvSummary } from './oneKvData';
 import { DatabaseHandler } from "./db/database";
 import { CronJob } from 'cron';
-import { BalancedNominator, Validator, Exposure, Identity } from "./types";
+import { BalancedNominator, Validator, Exposure, Identity, StakerPoint } from "./types";
 import { OneKvHandler } from "./oneKvData";
 import { RewardCalc } from "./rewardCalc";
 const keys = require('../config/keys');
@@ -148,16 +148,21 @@ export class Scheduler {
 
   private async updateActiveEra() {
     const era = await this.chainData.getActiveEraIndex();
+    const dbEra = await this.db.getActiveEra();
+    // if(era !== dbEra) {
+      await this.updateHistoricalAPY();
+    // }
+
     await this.db.saveActiveEra(era);
   }
 
   private async makeValidatorInfoOfEra(validator: Validator, eraReward: string,
     era: number, validatorCount: number) {
-
-    const stakerPoint = await this.chainData.getStakerPoints(validator.accountId);
-    const activeEras = stakerPoint?.filter((point)=>{
+    const stakerPoints = await this.chainData.getStakerPoints(validator.accountId);
+    const activeEras = stakerPoints?.filter((point)=>{
       return point.points.toNumber() > 0;
     });
+    //console.log(JSON.stringify(stakerPoint[0]));
     const unclaimedEras = activeEras?.filter((point) => !validator.stakingLedger.claimedRewards.includes(point.era));
     const lastEraInfo = await this.db.getValidatorStatusOfEra(validator?.accountId!, era - 1);
     let latestCommission = 0;
@@ -197,6 +202,9 @@ export class Scheduler {
       }, BigInt(0)),
       commissionChanged: commissionChanged,
       id: validator.accountId,
+      stakerPoints: stakerPoints.map((stakerPoint) => {
+        return new StakerPoint(stakerPoint.era.toNumber(), stakerPoint.points.toNumber());
+      }),
     };
     this.saveUnclaimedEras(validator.accountId, unclaimedEras?.map((era)=>{
       return era.era.toNumber();
@@ -212,7 +220,8 @@ export class Scheduler {
     };
   }
 
-  private saveValidatorNominationData(validator: string, data: { era: number; exposure: Exposure; commission: number; apy: number; identity: Identity | undefined; nominators: string[]; commissionChanged: number; }) {
+  private async saveValidatorNominationData(validator: string, data: { era: number; exposure: Exposure; commission: number;
+    apy: number; identity: Identity | undefined; nominators: string[]; commissionChanged: number; stakerPoints: StakerPoint[]}) {
     (validatorCache as any)[validator] = data;
   }
 
@@ -220,5 +229,42 @@ export class Scheduler {
     for (let i = 0; i < validator.nominators.length; i++) {
       (nominatorCache as any)[validator.nominators[i].address] = validator.nominators[i];
     }
+  }
+
+  private async updateHistoricalAPY() {
+    console.log('[Kusama] Start update Validator APY');
+    const validators = await this.db.getValidatorList();
+    console.time('[Kusama] Update each validator\'s average apy');
+    for(let i = 0; i < validators.length; i++) {
+      const data = await this.db.getValidatorStatus(validators[i]);
+      const info = data.objectData[0].info;
+      const totalEras = info.length;
+      let sum = 0;
+      let avgApy = 0;
+      let activeEras = 0;
+      if(totalEras > 84) {
+        for(let j = totalEras - 85; j < totalEras - 1; j++) {
+          if(info[j].exposure.total > 0) {
+            sum += info[j].apy;
+            activeEras++;
+          }
+        }
+      } else {
+        for(let j = 0; j < totalEras; j++) {
+          if(info[j].exposure.total > 0) {
+            sum += info[j].apy;
+            activeEras++;
+          }
+        }
+      }
+      if(activeEras > 0) {
+        avgApy = sum / activeEras;
+      } else {
+        avgApy = 0;
+      }
+      // console.log('average APY for past ' + activeEras + ' eras of ' + data.objectData[0].id + ' is ' + avgApy);
+      await this.db.saveHistoricalApy(data.objectData[0].id, avgApy);
+    }
+    console.timeEnd('[Kusama] Update each validator\'s average apy');
   }
 }

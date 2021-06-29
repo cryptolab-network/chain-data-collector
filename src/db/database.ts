@@ -97,6 +97,14 @@ export class DatabaseHandler {
     };
   }
 
+  async saveHistoricalApy(id: string, apy: number) {
+    await this.ValidatorModel?.updateOne({
+      id: id
+    }, {
+      $set: {averageApy: apy}
+    }, {}).exec().catch((err)=>{console.error(err)});
+  }
+
   async getValidators(era: number, size: number, page: number) {
     const startTime = Date.now();
     const nominations = await this.NominationModel?.aggregate([
@@ -143,7 +151,7 @@ export class DatabaseHandler {
       const { validator, objectData } = await this.getValidatorStatus(id);
       const nData = new NominationDbSchema(data.era, data.exposure, data.nominators, data.commission, data.apy, id, data.total);
       if(validator === undefined || validator.length === 0) {
-        const vData = new ValidatorDbSchema(id, new IdentityDbSchema(data.identity.getIdentity()), new StatusChange(0));
+        const vData = new ValidatorDbSchema(id, new IdentityDbSchema(data.identity.getIdentity()), new StatusChange(0), data.stakerPoints);
         await this.ValidatorModel?.create(vData).catch((err: any) => console.error(err));
         await this.NominationModel?.create(nData.exportString()).catch((err: any) => console.error(err));
       } else {
@@ -188,6 +196,7 @@ export class DatabaseHandler {
                   statusChange: {
                     commission: validator.commissionChanged
                   },
+                  stakerPoints: validator.stakerPoints,
                 },
               "upsert": true,
             }
@@ -292,6 +301,17 @@ export class DatabaseHandler {
     const result = await this.ChainInfoModel?.updateOne({}, {$set: {activeEra: era}}, {upsert: true}).exec().catch((err)=>{
       console.error(err);
     });
+  }
+
+  async getActiveEra() {
+    console.log('get active era');
+    const data = await this.ChainInfoModel?.findOne({}, 'activeEra').exec();
+    if(data === null) {
+      throw new Error('Cannot get active Era');
+    } else {
+      const activeEra = data?.get('activeEra');
+      return activeEra;
+    }
   }
 
   async saveLastFetchedBlock(blockNumber: number) {

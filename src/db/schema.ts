@@ -1,5 +1,5 @@
 import { model, Schema, Model, Document, Decimal128 } from 'mongoose';
-import { Identity, StatusChange, ValidatorTotalReward } from '../types';
+import { Identity, StakerPoint, StatusChange, ValidatorTotalReward } from '../types';
 export { ValidatorModel, ValidatorSchema, NominationSchema, NominatorSchema,
   NominationModel, ChainInfoSchema, ChainInfoModel, UnclaimedEraInfoSchema, IUnclaimedEraInfo,
   IStashInfo, StashInfoSchema };
@@ -56,6 +56,8 @@ interface IValidator extends Document {
   identity: Identity;
   statusChange: StatusChange;
   rewards: ValidatorTotalReward;
+  stakerPoints: StakerPoint;
+  averageApy: number;
 };
 
 const ValidatorSchema: Schema = new Schema({
@@ -70,7 +72,14 @@ const ValidatorSchema: Schema = new Schema({
     start: Number,
     end: Number,
     total: Number
-  }
+  },
+  stakerPoints: [
+    {
+      era: Number,
+      points: Number,
+    },
+  ],
+  averageApy: Number,
 });
 
 const ValidatorModel: Model<IValidator> = model('Validator', ValidatorSchema);
