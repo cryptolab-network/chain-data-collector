@@ -26,11 +26,17 @@ module.exports = {
 ```
 
 `KUSAMA_WSS` and `POLKADOT_WSS` indicate the Polkadot/Kusama websocket server address
+
 `API_1KV_KUSAMA` and `API_1KV_POLKADOT` indicate the HTTP server used for hosting One Thousand Validator Program
+
 `MONGO_ACCOUNT` and `MONGO_PASSWORD` can be ignored in dev version.
+
 `MONGO_URL` and `MONGO_PORT` indicate the address of your MongoDB server.
+
 `MONGO_DBNAME` and `MONGO_DBNAME_POLKADOT` indicate the DB name used for either chain.
+
 `PAGE_SIZE` is deprecated.
+
 `PORT` is deprecated.
 
 ## Run
