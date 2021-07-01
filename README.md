@@ -3,6 +3,10 @@
 ## Build and Setup
 
 0. Setup your own MongoDB Server. (We use MongoDB Community Server V4.4.4)
+0. Setup your own Redis Server.
+
+Ref. https://redis.io/topics/quickstart
+
 1. ```npm install```
 2. ```npm run build```
 3. Create ```dev.js``` in ```/config``` folder
@@ -22,6 +26,8 @@ module.exports = {
   MONGO_DBNAME: 'kusama',
   MONGO_DBNAME_POLKADOT: 'polkadot',
   PAGE_SIZE: 1500,
+  REDIS_URL: '127.0.0.1',
+  REDIS_PORT: 6379,
 }
 ```
 
@@ -34,6 +40,8 @@ module.exports = {
 `MONGO_URL` and `MONGO_PORT` indicate the address of your MongoDB server.
 
 `MONGO_DBNAME` and `MONGO_DBNAME_POLKADOT` indicate the DB name used for either chain.
+
+`REDIS_URL` and `REDIS_PORT` indicate the redis server address.
 
 `PAGE_SIZE` is deprecated.
 

@@ -11,4 +11,6 @@ module.exports = {
   MONGO_DBNAME: 'kusama',
   MONGO_DBNAME_POLKADOT: 'polkadot',
   PAGE_SIZE: 1500,
+  REDIS_URL: '127.0.0.1',
+  REDIS_PORT: 6379,
 }
