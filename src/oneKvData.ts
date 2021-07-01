@@ -1,7 +1,7 @@
 import axios from 'axios';
 import moment from 'moment';
 import { ChainData } from './chainData';
-import { Cache } from './cacheData';
+import { Cache } from './cacheRedis';
 import { DatabaseHandler } from './db/database';
 import { Validator } from './types';
 

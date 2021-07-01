@@ -232,6 +232,43 @@ class ChainData {
     console.timeEnd('[ChainData] Retrieving identity for next elected');
     validators = validators.concat(nextElects);
     console.time('[ChainData] Retrieving identity for waitings');
+    nextElects = await Promise.all(
+      nextElected.map((accountId) => 
+        this.api!.derive.staking.query(accountId, {
+          withDestination: false,
+          withExposure: true,
+          withLedger: true,
+          withNominations: true,
+          withPrefs: true,
+        }).then((validator) => {
+          // console.log(validator.stakingLedger.toString());
+          return new Validator(accountId.toString(),
+            validator.exposure, validator.stakingLedger, validator.validatorPrefs);
+        })
+      )
+    )
+
+    nextElects = await Promise.all(
+      nextElects.map((nextElect) => {
+        if(nextElect !== undefined) {
+          if(nextElect.accountId !== undefined) {
+            this.api!.derive.accounts.info(nextElect.accountId).then(({ identity }) => {
+              const _identity = new Identity(nextElect.accountId.toString());
+              _identity.display = identity.display;
+              _identity.displayParent = identity.displayParent;
+              nextElect.identity = _identity;
+              nextElect.totalNominators = 0;
+              nextElect.activeNominators = nextElect.exposure.others.length;
+              return nextElect;
+            });
+          }
+        }
+        return nextElect;
+      }
+    ));
+
+    validators = validators.concat(nextElects);
+
     intentions = await Promise.all(
       waitingInfo.info.map((intention) => {
         return this.api!.derive.accounts.info(intention.accountId).then(({ identity }) => {

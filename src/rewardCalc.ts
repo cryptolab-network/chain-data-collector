@@ -1,6 +1,6 @@
 import { ChainData } from "./chainData";
 import { DatabaseHandler } from "./db/database";
-import { Cache } from './cacheData';
+import { Cache } from './cacheRedis';
 import { ValidatorEraReward, ValidatorTotalReward } from "./types";
 const divide = require('divide-bigint');
 
