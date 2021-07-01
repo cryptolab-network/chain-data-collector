@@ -82,6 +82,10 @@ const ValidatorSchema: Schema = new Schema({
   averageApy: Number,
 });
 
+ValidatorSchema.index({
+  'id': 1
+}, {name: 'id_'});
+
 const ValidatorModel: Model<IValidator> = model('Validator', ValidatorSchema);
 
 interface INomination extends Document {
@@ -110,6 +114,10 @@ const NominationSchema: Schema = new Schema({
 });
 
 const NominationModel: Model<INomination> = model('Nomination', NominationSchema);
+
+NominationSchema.index({
+  'validator': 1
+}, {name: 'validator_'});
 
 const NominatorSchema: Schema = new Schema({
   address: String,

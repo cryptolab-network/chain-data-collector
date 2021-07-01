@@ -8,7 +8,7 @@ import { OneKvHandler } from "./oneKvData";
 import { RewardCalc } from "./rewardCalc";
 const keys = require('../config/keys');
 
-const KUSAMA_DECIMAL = 1000000000000;
+let DECIMALS = 1000000000000;
 
 let nominatorCache = {};
 let validatorCache = {};
@@ -20,49 +20,62 @@ export class Scheduler {
   db: DatabaseHandler
   isCaching: boolean
   oneKvHandler: OneKvHandler
-  constructor(chainData: ChainData, db: DatabaseHandler, cacheData: Cache) {
+  name: String
+  constructor(name: String, chainData: ChainData, db: DatabaseHandler, cacheData: Cache) {
     this.chainData = chainData;
     this.cacheData = cacheData;
     this.db = db;
     this.isCaching = false;
-    this.oneKvHandler= new OneKvHandler(this.chainData, this.cacheData, this.db, keys.API_1KV_KUSAMA);
+    if(name === 'POLKADOT') {
+      this.oneKvHandler= new OneKvHandler(this.chainData, this.cacheData, this.db, keys.API_1KV_POLKADOT);
+      DECIMALS = 100000000000000;
+    } else {
+      this.oneKvHandler= new OneKvHandler(this.chainData, this.cacheData, this.db, keys.API_1KV_KUSAMA);
+      DECIMALS = 1000000000000;
+    }
+    this.name = name;
   }
 
   start() {
-    this.rewardCalcScheduler();
-    this.fetchDataScheduler();
+    if(this.name === 'KUSAMA') {
+      this.rewardCalcScheduler('0 2,8,14,20 * * *');
+      this.fetchDataScheduler('*/20 * * * *');
+    } else {
+      this.rewardCalcScheduler('0 0 * * *');
+      this.fetchDataScheduler('*/30 * * * *');
+    }
   }
 
-  private async rewardCalcScheduler() {
+  private async rewardCalcScheduler(schedule: string) {
     const calc = new RewardCalc(this.chainData, this.db, this.cacheData);
-    const rewardCalcJob = new CronJob('0 2,8,14,20 * * *', async () => {
-      console.log('Kusama Reward Calc starts');
-      await calc.calc(BigInt(KUSAMA_DECIMAL));
-      console.log('Kusama Reward Calc ends');
+    const rewardCalcJob = new CronJob(schedule, async () => {
+      console.log(`${this.name} Reward Calc starts`);
+      await calc.calc(BigInt(DECIMALS));
+      console.log(`${this.name} Reward Calc ends`);
     }, null, true, 'America/Los_Angeles', null, true);
     rewardCalcJob.start();
   }
 
-  private async fetchDataScheduler() {
-    const job = new CronJob('*/20 * * * *', async () => {
+  private async fetchDataScheduler(schedule: string) {
+    const job = new CronJob(schedule, async () => {
       if(this.isCaching) {
         return;
       }
       this.isCaching = true;
       try {
-        console.log('Kusama scheduler starts');
-        console.time('[Kusama] Update active era');
+        console.log(`${this.name} scheduler starts`);
+        console.time(`[${this.name}] Update active era`);
         await this.updateActiveEra();
-        console.timeEnd('[Kusama] Update active era');
+        console.timeEnd(`[${this.name}] Update active era`);
 
-        console.time('[Kusama] Retrieving chain data');
+        console.time(`[${this.name}] Retrieving chain data`);
         const activeEra = await this.chainData.getActiveEraIndex();
         const eraReward = await this.chainData.getEraTotalReward(activeEra - 1);
         const validatorCount = await this.chainData.getCurrentValidatorCount();
         console.log('era reward: ' + eraReward);
         const validatorWaitingInfo = await this.chainData.getValidatorWaitingInfo();
-        console.timeEnd('[Kusama] Retrieving chain data');
-        console.time('[Kusama] Write Validator Data');
+        console.timeEnd(`[${this.name}] Retrieving chain data`);
+        console.time(`[${this.name}] Write Validator Data`);
         nominatorCache = {};
         validatorCache = {};
         unclaimedEraCache = {};
@@ -98,8 +111,8 @@ export class Scheduler {
         if (tmp.length > 0) {
           await this.db.saveMultipleValidatorUnclaimedEras(tmp);
         }
-        console.timeEnd('[Kusama] Write Validator Data');
-        console.time('[Kusama] Write Nominator Data');
+        console.timeEnd(`[${this.name}] Write Validator Data`);
+        console.time(`[${this.name}] Write Nominator Data`);
         i = 1;
         tmp = [];
         for (const address in nominatorCache) {
@@ -113,8 +126,8 @@ export class Scheduler {
         if (tmp.length > 0) {
           await this.db.saveNominators(tmp, activeEra);
         }
-        console.timeEnd('[Kusama] Write Nominator Data');
-        console.time('[Kusama] Update Cache Data');
+        console.timeEnd(`[${this.name}] Write Nominator Data`);
+        console.time(`[${this.name}] Update Cache Data`);
         this.cacheData.update('validDetailAll', { 
           valid: validatorWaitingInfo.validators.map(v => {
             if(v !== undefined) {
@@ -128,8 +141,8 @@ export class Scheduler {
         }));
         console.log('length ' +　validatorWaitingInfo.validators.length);
         await this.cacheOneKVInfo(validatorWaitingInfo.validators);
-        console.timeEnd('[Kusama] Update Cache Data');
-        console.log('Kusama scheduler ends');
+        console.timeEnd(`[${this.name}] Update Cache Data`);
+        console.log(`[${this.name}] scheduler ends`);
       } catch (err){
         console.log(err);
         console.log('schedule retrieving data error');
@@ -152,7 +165,6 @@ export class Scheduler {
     // if(era !== dbEra) {
       await this.updateHistoricalAPY();
     // }
-
     await this.db.saveActiveEra(era);
   }
 
@@ -162,7 +174,6 @@ export class Scheduler {
     const activeEras = stakerPoints?.filter((point)=>{
       return point.points.toNumber() > 0;
     });
-    //console.log(JSON.stringify(stakerPoint[0]));
     const unclaimedEras = activeEras?.filter((point) => !validator.stakingLedger.claimedRewards.includes(point.era));
     const lastEraInfo = await this.db.getValidatorStatusOfEra(validator?.accountId!, era - 1);
     let latestCommission = 0;
@@ -186,7 +197,11 @@ export class Scheduler {
     // if(commissionChanged !== 0) {
     //   console.log('commission changed:' + commissionChanged  + ' from ' + latestCommission + " to " + validator.prefs.commissionPct());
     // }
-    const apy = validator.apy(BigInt(KUSAMA_DECIMAL), BigInt(eraReward), validatorCount, 4);
+    let erasPerDay = 1;
+    if(this.name === 'KUSAMA') {
+      erasPerDay = 4;
+    }
+    const apy = validator.apy(BigInt(DECIMALS), BigInt(eraReward), validatorCount, erasPerDay);
     const data = {
       era: era,
       exposure: validator.exposure,
@@ -232,12 +247,13 @@ export class Scheduler {
   }
 
   private async updateHistoricalAPY() {
-    console.log('[Kusama] Start update Validator APY');
+    console.log(`[${this.name}] Start update Validator APY`);
     const validators = await this.db.getValidatorList();
-    console.time('[Kusama] Update each validator\'s average apy');
-    for(let i = 0; i < validators.length; i++) {
-      const data = await this.db.getValidatorStatus(validators[i]);
-      const info = data.objectData[0].info;
+    console.time(`[${this.name}] Update each validator\'s average apy`);
+    const data = await this.db.getAllValidatorStatus();
+    for(let i = 0; i < data.length; i++) {
+      //const data = await this.db.getValidatorStatus(validators[i]);
+      const info = data[i].info;
       const totalEras = info.length;
       let sum = 0;
       let avgApy = 0;
@@ -262,9 +278,9 @@ export class Scheduler {
       } else {
         avgApy = 0;
       }
-      // console.log('average APY for past ' + activeEras + ' eras of ' + data.objectData[0].id + ' is ' + avgApy);
-      await this.db.saveHistoricalApy(data.objectData[0].id, avgApy);
+      console.log('average APY for past ' + activeEras + ' eras of ' + data[i].id + ' is ' + avgApy);
+      await this.db.saveHistoricalApy(data[i].id, avgApy);
     }
-    console.timeEnd('[Kusama] Update each validator\'s average apy');
+    console.timeEnd(`[${this.name}] Update each validator\'s average apy`);
   }
 }

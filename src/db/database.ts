@@ -1,7 +1,7 @@
-import { Mongoose, Schema, Model, Document, set } from 'mongoose';
-import { Identity, ValidatorDbSchema, NominationDbSchema, StatusChange, IdentityDbSchema, ValidatorEraReward, BalancedNominator, Balance, Exposure } from '../types';
-import { ValidatorSchema, ValidatorModel, NominationModel, NominationSchema, NominatorSchema,
-  ChainInfoModel, ChainInfoSchema, IUnclaimedEraInfo, UnclaimedEraInfoSchema, IStashInfo, StashInfoSchema } from './schema';
+import { Mongoose, Model, Document } from 'mongoose';
+import { ValidatorDbSchema, NominationDbSchema, StatusChange, IdentityDbSchema, ValidatorEraReward, BalancedNominator, Balance, Exposure } from '../types';
+import { ValidatorSchema, NominationSchema, NominatorSchema,
+  ChainInfoSchema, UnclaimedEraInfoSchema, StashInfoSchema } from './schema';
 import AsyncLock from 'async-lock';
 
 export class DatabaseHandler {
@@ -13,7 +13,6 @@ export class DatabaseHandler {
   NominatorModel?: Model<Document<any, {}>, {}>
   lock: AsyncLock
   constructor() {
-    set('debug', true);
     this.lock = new AsyncLock({maxPending: 1000});
   }
 
@@ -36,6 +35,7 @@ export class DatabaseHandler {
     this.UnclaimedEraInfoModel = db.model('UnclaimedEraInfo_' + dbName, UnclaimedEraInfoSchema, 'unclaimedEraInfo');
     this.StashInfoModel = db.model('StashInfo_' + dbName, StashInfoSchema, 'stashInfo' );
     this.NominatorModel = db.model('Nominator_'+ dbName, NominatorSchema, 'nominator');
+
     db.on('error', console.error.bind(console, 'connection error:'));
     db.once('open', async function() {
       console.log('DB connected');
@@ -85,7 +85,7 @@ export class DatabaseHandler {
       {$lookup: {
         from: 'nomination',
         localField: 'id',
-        foreignField: 'validator',
+        foreignField: 'validator_',
         as: 'info'
       }}
     ]).exec();
@@ -95,6 +95,19 @@ export class DatabaseHandler {
       validator: validator,
       objectData: result
     };
+  }
+
+  async getAllValidatorStatus() {
+    const validator = await this.ValidatorModel?.aggregate([
+      {$lookup: {
+        from: 'nomination',
+        localField: 'id',
+        foreignField: 'validator',
+        as: 'info'
+      }}
+    ]).exec();
+
+    return validator;
   }
 
   async saveHistoricalApy(id: string, apy: number) {

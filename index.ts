@@ -2,7 +2,6 @@ import { ChainData } from './src/chainData';
 import { Cache } from './src/cacheData';
 import { DatabaseHandler } from './src/db/database';
 import { Scheduler } from './src/scheduler';
-import { Scheduler as PolkadotScheduler } from  './src/polkadotScheduler';
 import path from 'path';
 import { RpcListener } from './src/event/rpcListener';
 const argv = require('yargs/yargs')(process.argv.slice(2)).argv;
@@ -44,7 +43,7 @@ async function initKusama() {
     await db.connect(keys.MONGO_ACCOUNT, keys.MONGO_PASSWORD, keys.MONGO_URL, keys.MONGO_PORT, keys.MONGO_DBNAME);
     const rpcListener = new RpcListener(chainData, db, KUSAMA_DECIMAL, 'KSM');
     rpcListener.start();
-    const scheduler = new Scheduler(chainData, db, cacheData);
+    const scheduler = new Scheduler('KUSAMA', chainData, db, cacheData);
     scheduler.start();
   } catch(err) {
     console.error(err);
@@ -61,7 +60,7 @@ async function initPolkadot() {
     await db.connect(keys.MONGO_ACCOUNT, keys.MONGO_PASSWORD, keys.MONGO_URL, keys.MONGO_PORT, keys.MONGO_DBNAME_POLKADOT);
     const rpcListener = new RpcListener(chainData, db, POLKADOT_DECIMAL, 'DOT');
     rpcListener.start();
-    const polkadotScheduler = new PolkadotScheduler(chainData, db, cacheData);
+    const polkadotScheduler = new Scheduler('POLKADOT', chainData, db, cacheData);
     polkadotScheduler.start();
   } catch(err) {
     console.error(err);
