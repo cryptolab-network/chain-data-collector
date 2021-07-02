@@ -1,7 +1,7 @@
 import { Mongoose, Model, Document } from 'mongoose';
-import { ValidatorDbSchema, NominationDbSchema, StatusChange, IdentityDbSchema, ValidatorEraReward, BalancedNominator, Balance, Exposure } from '../types';
+import { ValidatorDbSchema, NominationDbSchema, StatusChange, IdentityDbSchema, ValidatorEraReward, BalancedNominator, Balance, Exposure, ValidatorSlash } from '../types';
 import { ValidatorSchema, NominationSchema, NominatorSchema,
-  ChainInfoSchema, UnclaimedEraInfoSchema, StashInfoSchema } from './schema';
+  ChainInfoSchema, UnclaimedEraInfoSchema, StashInfoSchema, ValidatorSlashSchema } from './schema';
 import AsyncLock from 'async-lock';
 
 export class DatabaseHandler {
@@ -11,6 +11,7 @@ export class DatabaseHandler {
   UnclaimedEraInfoModel?: Model<Document<any, {}>, {}>
   StashInfoModel?: Model<Document<any, {}>, {}>
   NominatorModel?: Model<Document<any, {}>, {}>
+  ValidatorSlashModel?: Model<Document<any, {}>, {}>
   lock: AsyncLock
   constructor() {
     this.lock = new AsyncLock({maxPending: 1000});
@@ -35,6 +36,7 @@ export class DatabaseHandler {
     this.UnclaimedEraInfoModel = db.model('UnclaimedEraInfo_' + dbName, UnclaimedEraInfoSchema, 'unclaimedEraInfo');
     this.StashInfoModel = db.model('StashInfo_' + dbName, StashInfoSchema, 'stashInfo' );
     this.NominatorModel = db.model('Nominator_'+ dbName, NominatorSchema, 'nominator');
+    this.ValidatorSlashModel = db.model('ValidatorSlash_' + dbName, ValidatorSlashSchema,  'validatorSlash');
 
     db.on('error', console.error.bind(console, 'connection error:'));
     db.once('open', async function() {
@@ -378,6 +380,26 @@ export class DatabaseHandler {
     } catch(err) {
       console.error(err);
     }
+  }
+
+  async saveValidatorSlash(id: string, slash: ValidatorSlash) {
+    await this.ValidatorSlashModel?.create({
+      address: id,
+      era: slash.era,
+      total: slash.own,
+      others: slash.others.reduce((acc: any, other)=>{
+        const o = {
+          address: other[0],
+          value: other[1],
+        };
+        acc.push(o);
+        return acc;
+      }, []),
+    }).catch((err)=>{
+      if(err.code !== 11000) { // we should accept duplication key as a normal situation.
+        console.log(err);
+      }
+    });
   }
 
   async updateValidatorTotalReward(id: string, reward: ValidatorEraReward) {

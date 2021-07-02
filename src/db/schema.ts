@@ -130,6 +130,34 @@ const NominatorSchema: Schema = new Schema({
 
 NominatorSchema.index({'address': 1}, {unique: true});
 
+interface IValidatorSlash extends Document {
+  address: string;
+  era: number;
+  total: string;
+  others: IValidatorSlashNominator;
+};
+
+interface IValidatorSlashNominator extends Document {
+  address: String;
+  value: String;
+};
+
+export const ValidatorSlashSchema: Schema = new Schema({
+  address: String,
+  era: Number,
+  total: String,
+  others: [
+    {
+      address: String,
+      value: String,
+    },
+  ],
+});
+
+ValidatorSlashSchema.index({'address': 1, 'era': 1}, {unique: true});
+
+const ValidatorSlashModel: Model<IValidatorSlash> = model('ValidatorSlash', ValidatorSlashSchema);
+
 function toHexString(v: bigint) {
   return v.toString(10);
 }

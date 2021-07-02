@@ -1,5 +1,5 @@
 import { ApiPromise, WsProvider } from '@polkadot/api';
-import { Identity, BalancedNominator, Balance, Validator, EraRewardDist } from './types';
+import { Identity, BalancedNominator, Balance, Validator, EraRewardDist, ValidatorSlash } from './types';
 
 export { ChainData };
 
@@ -352,5 +352,24 @@ class ChainData {
   getCurrentValidatorCount = async () => {
     const validatorCount = await this.api!.query.staking.validatorCount();
     return validatorCount.toNumber();
+  }
+
+  async getUnappliedSlashOfEra(era: number): Promise<ValidatorSlash[]> {
+    const unappliedSlashes = await this.api!.query.staking.unappliedSlashes(era);
+    const slashes = new Array<ValidatorSlash>();
+    unappliedSlashes.forEach((slash)=>{
+      const others = new Array<string[]>();
+      slash.others.forEach((other)=>{
+        others.push(
+          [
+            other[0].toString(),
+            other[1].toString(),
+          ]
+        )
+      });
+      const _slash = new ValidatorSlash(era, slash.validator.toString(), slash.own.toBigInt(), others);
+      slashes.push(_slash);
+    });
+    return slashes;
   }
 }

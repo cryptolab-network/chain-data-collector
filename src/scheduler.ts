@@ -3,7 +3,7 @@ import { Cache } from './cacheRedis';
 import { OneKvNominatorSummary, OneKvSummary } from './oneKvData';
 import { DatabaseHandler } from "./db/database";
 import { CronJob } from 'cron';
-import { BalancedNominator, Validator, Exposure, Identity, StakerPoint } from "./types";
+import { BalancedNominator, Validator, Exposure, Identity, StakerPoint, ValidatorSlash } from "./types";
 import { OneKvHandler } from "./oneKvData";
 import { RewardCalc } from "./rewardCalc";
 const keys = require('../config/keys');
@@ -164,6 +164,7 @@ export class Scheduler {
     const dbEra = await this.db.getActiveEra();
     // if(era !== dbEra) {
       await this.updateHistoricalAPY();
+      await this.updateUnappliedSlashes(era - 1);
     // }
     await this.db.saveActiveEra(era);
   }
@@ -278,9 +279,18 @@ export class Scheduler {
       } else {
         avgApy = 0;
       }
-      console.log('average APY for past ' + activeEras + ' eras of ' + data[i].id + ' is ' + avgApy);
+      // console.log('average APY for past ' + activeEras + ' eras of ' + data[i].id + ' is ' + avgApy);
       await this.db.saveHistoricalApy(data[i].id, avgApy);
     }
     console.timeEnd(`[${this.name}] Update each validator\'s average apy`);
+  }
+
+  private async updateUnappliedSlashes(era: number) {
+    console.time(`[${this.name}] Update Unapplied Slashes`);
+    const slashes = await this.chainData.getUnappliedSlashOfEra(era);
+    for (const slash of slashes) {
+      await this.db.saveValidatorSlash(slash.address, slash);
+    }
+    console.timeEnd(`[${this.name}] Update Unapplied Slashes`);
   }
 }

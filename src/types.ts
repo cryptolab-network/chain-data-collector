@@ -311,6 +311,28 @@ export class StakerPoint {
   }
 }
 
+export class ValidatorSlash {
+  era: number
+  address: string
+  own: string
+  others: string[][]
+  constructor(era: number, address: string, own: string | bigint, others: string[][]) {
+    if(typeof own === 'bigint') {
+      this.own = __toHexString(own);
+    } else {
+      this.own = own;
+    }
+    this.others = others.map((other)=>{
+      return [
+        other[0],
+        __toHexString(BigInt(other[1]))
+      ];
+    });
+    this.era = era;
+    this.address = address;
+  }
+}
+
 const __toHexString = (v: bigint) => {
   let hex = v.toString(16);
   if(hex.length % 2 === 1) {
