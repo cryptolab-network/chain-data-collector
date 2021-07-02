@@ -1,7 +1,7 @@
 import { Mongoose, Model, Document } from 'mongoose';
-import { ValidatorDbSchema, NominationDbSchema, StatusChange, IdentityDbSchema, ValidatorEraReward, BalancedNominator, Balance, Exposure, ValidatorSlash } from '../types';
+import { ValidatorDbSchema, NominationDbSchema, StatusChange, IdentityDbSchema, ValidatorEraReward, BalancedNominator, Balance, Exposure, ValidatorSlash, NominatorSlash } from '../types';
 import { ValidatorSchema, NominationSchema, NominatorSchema,
-  ChainInfoSchema, UnclaimedEraInfoSchema, StashInfoSchema, ValidatorSlashSchema } from './schema';
+  ChainInfoSchema, UnclaimedEraInfoSchema, StashInfoSchema, ValidatorSlashSchema, NominatorSlashSchema } from './schema';
 import AsyncLock from 'async-lock';
 
 export class DatabaseHandler {
@@ -12,6 +12,7 @@ export class DatabaseHandler {
   StashInfoModel?: Model<Document<any, {}>, {}>
   NominatorModel?: Model<Document<any, {}>, {}>
   ValidatorSlashModel?: Model<Document<any, {}>, {}>
+  NominatorSlashModel?: Model<Document<any, {}>, {}>
   lock: AsyncLock
   constructor() {
     this.lock = new AsyncLock({maxPending: 1000});
@@ -37,7 +38,7 @@ export class DatabaseHandler {
     this.StashInfoModel = db.model('StashInfo_' + dbName, StashInfoSchema, 'stashInfo' );
     this.NominatorModel = db.model('Nominator_'+ dbName, NominatorSchema, 'nominator');
     this.ValidatorSlashModel = db.model('ValidatorSlash_' + dbName, ValidatorSlashSchema,  'validatorSlash');
-
+    this.NominatorSlashModel = db.model('NominatorSlash_' + dbName, NominatorSlashSchema,  'nominatorSlash');
     db.on('error', console.error.bind(console, 'connection error:'));
     db.once('open', async function() {
       console.log('DB connected');
@@ -395,6 +396,19 @@ export class DatabaseHandler {
         acc.push(o);
         return acc;
       }, []),
+    }).catch((err)=>{
+      if(err.code !== 11000) { // we should accept duplication key as a normal situation.
+        console.log(err);
+      }
+    });
+  }
+
+  async saveNominatorSlash(id: string, slash: NominatorSlash) {
+    await this.NominatorSlashModel?.create({
+      address: id,
+      era: slash.era,
+      total: slash.total,
+      validator: slash.validator,
     }).catch((err)=>{
       if(err.code !== 11000) { // we should accept duplication key as a normal situation.
         console.log(err);

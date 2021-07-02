@@ -3,7 +3,7 @@ import { Cache } from './cacheRedis';
 import { OneKvNominatorSummary, OneKvSummary } from './oneKvData';
 import { DatabaseHandler } from "./db/database";
 import { CronJob } from 'cron';
-import { BalancedNominator, Validator, Exposure, Identity, StakerPoint, ValidatorSlash } from "./types";
+import { BalancedNominator, Validator, Exposure, Identity, StakerPoint, ValidatorSlash, NominatorSlash } from "./types";
 import { OneKvHandler } from "./oneKvData";
 import { RewardCalc } from "./rewardCalc";
 const keys = require('../config/keys');
@@ -290,6 +290,10 @@ export class Scheduler {
     const slashes = await this.chainData.getUnappliedSlashOfEra(era);
     for (const slash of slashes) {
       await this.db.saveValidatorSlash(slash.address, slash);
+      for (const other of slash.others) {
+        const nominatorSlash = new NominatorSlash(other[0], era, other[1], slash.address);
+        await this.db.saveNominatorSlash(other[0], nominatorSlash);
+      }
     }
     console.timeEnd(`[${this.name}] Update Unapplied Slashes`);
   }

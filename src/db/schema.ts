@@ -156,7 +156,15 @@ export const ValidatorSlashSchema: Schema = new Schema({
 
 ValidatorSlashSchema.index({'address': 1, 'era': 1}, {unique: true});
 
-const ValidatorSlashModel: Model<IValidatorSlash> = model('ValidatorSlash', ValidatorSlashSchema);
+export const NominatorSlashSchema: Schema = new Schema({
+  address: String,
+  era: Number,
+  total: String,
+  validator: String,
+});
+
+NominatorSlashSchema.index({'address': 1, 'era': 1, 'validator': 1}, {unique: true});
+
 
 function toHexString(v: bigint) {
   return v.toString(10);

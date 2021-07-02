@@ -333,6 +333,19 @@ export class ValidatorSlash {
   }
 }
 
+export class NominatorSlash {
+  address: String
+  era: Number
+  total: String
+  validator: String
+  constructor(address: String, era: Number, total: String, validator: String) {
+    this.address = address;
+    this.era = era;
+    this.total = total;
+    this.validator = validator;
+  }
+}
+
 const __toHexString = (v: bigint) => {
   let hex = v.toString(16);
   if(hex.length % 2 === 1) {
