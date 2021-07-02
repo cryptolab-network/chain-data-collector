@@ -1,4 +1,5 @@
 import redis from 'redis';
+import { logger } from './logger';
 
 export class Cache {
   client: redis.RedisClient
@@ -9,10 +10,10 @@ export class Cache {
       port: port,
     });
     this.client.on("error", function(error: Error) {
-      console.error(error);
+      logger.error(error);
     });
     this.client.on('ready', function() {
-      console.log('redis connected');
+      logger.info('redis connected');
     });
     this.coin = coin;
   }

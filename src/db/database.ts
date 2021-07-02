@@ -3,6 +3,7 @@ import { ValidatorDbSchema, NominationDbSchema, StatusChange, IdentityDbSchema, 
 import { ValidatorSchema, NominationSchema, NominatorSchema,
   ChainInfoSchema, UnclaimedEraInfoSchema, StashInfoSchema, ValidatorSlashSchema, NominatorSlashSchema } from './schema';
 import AsyncLock from 'async-lock';
+import { logger } from '../logger';
 
 export class DatabaseHandler {
   ValidatorModel?: Model<Document<any, {}>, {}>
@@ -41,7 +42,7 @@ export class DatabaseHandler {
     this.NominatorSlashModel = db.model('NominatorSlash_' + dbName, NominatorSlashSchema,  'nominatorSlash');
     db.on('error', console.error.bind(console, 'connection error:'));
     db.once('open', async function() {
-      console.log('DB connected');
+      logger.info('DB connected');
     });
   }
 
@@ -118,7 +119,7 @@ export class DatabaseHandler {
       id: id
     }, {
       $set: {averageApy: apy}
-    }, {}).exec().catch((err)=>{console.error(err)});
+    }, {}).exec().catch((err)=>{logger.error(err)});
   }
 
   async getValidators(era: number, size: number, page: number) {
@@ -152,7 +153,7 @@ export class DatabaseHandler {
         }
       }
     });
-    console.log('Executed query in', Date.now() - startTime, 'ms');
+    logger.info('Executed query in', Date.now() - startTime, 'ms');
     return {
       validator: validators
     }
@@ -168,8 +169,8 @@ export class DatabaseHandler {
       const nData = new NominationDbSchema(data.era, data.exposure, data.nominators, data.commission, data.apy, id, data.total);
       if(validator === undefined || validator.length === 0) {
         const vData = new ValidatorDbSchema(id, new IdentityDbSchema(data.identity.getIdentity()), new StatusChange(0), data.stakerPoints);
-        await this.ValidatorModel?.create(vData).catch((err: any) => console.error(err));
-        await this.NominationModel?.create(nData.exportString()).catch((err: any) => console.error(err));
+        await this.ValidatorModel?.create(vData).catch((err: any) => logger.error(err));
+        await this.NominationModel?.create(nData.exportString()).catch((err: any) => logger.error(err));
       } else {
         await this.ValidatorModel?.findOneAndUpdate({
           id: id
@@ -182,15 +183,15 @@ export class DatabaseHandler {
         if(nomination !== null) { // the data of this era exist, dont add a new one
           const result = await this.NominationModel?.findOneAndUpdate({
             era: data.era, validator: id,
-          }, nData.exportString(), {useFindAndModify: false}).exec().catch((err)=>{console.log(err)});
+          }, nData.exportString(), {useFindAndModify: false}).exec().catch((err)=>{logger.error(err)});
           return true;
         }
         await this.NominationModel?.create(nData.exportString());
       }
       return true;
     } catch (err) {
-      console.log(err);
-      console.log(`id = ${id}`);
+      logger.error(err);
+      logger.error(`id = ${id}`);
       return false;
     }
   }
@@ -238,7 +239,7 @@ export class DatabaseHandler {
       });
       await this.NominationModel?.bulkWrite(script);
     } catch(err) {
-      console.error(err);
+      logger.error(err);
     }
 
   }
@@ -264,7 +265,7 @@ export class DatabaseHandler {
       });
       await this.NominatorModel?.bulkWrite(script);
     } catch(err) {
-      console.error(err);
+      logger.error(err);
     }
   }
 
@@ -272,7 +273,7 @@ export class DatabaseHandler {
     const nominator = await this.NominatorModel?.findOne({
       address: data.address,
     }).exec().catch((err)=>{
-      console.error(err);
+      logger.error(err);
     });
     if(nominator !== undefined && nominator !== null) { // the nominator is updated in this era, only update iff nominator is diff from data
       const targets = nominator.get('targets');
@@ -281,13 +282,14 @@ export class DatabaseHandler {
         const sorted = data.targets.sort();
         const identical = targets.sort().every((v: string, i: number) => v === sorted[i]);
         if(!identical) {
-          console.log('+++++++');
-          console.log(nominator, data);
-          console.log('------');
+          logger.debug('+++++++');
+          logger.debug(nominator);
+          logger.debug(data);
+          logger.debug('------');
           this.NominatorModel?.updateOne({address: data.address}, {
             $set: {targets: data.targets},
           }).exec().catch((err)=>{
-            console.error(err);
+            logger.error(err);
           });
         }
       }
@@ -297,7 +299,7 @@ export class DatabaseHandler {
             balance: data.balance.exportString(),
           },
         }).exec().catch((err)=>{
-          console.error(err);
+          logger.error(err);
         });
       }
     } else { // the nomoinator is not exist in this era, create a new one
@@ -307,20 +309,20 @@ export class DatabaseHandler {
           targets: data.targets,
           balance: data.balance.exportString(),
         }).catch((err)=>{
-        console.error(err);
+          logger.error(err);
       });
     }
   }
 
   async saveActiveEra(era: number) {
-    console.log('save active era');
+    logger.debug('save active era');
     const result = await this.ChainInfoModel?.updateOne({}, {$set: {activeEra: era}}, {upsert: true}).exec().catch((err)=>{
-      console.error(err);
+      logger.error(err);
     });
   }
 
   async getActiveEra() {
-    console.log('get active era');
+    logger.debug('get active era');
     const data = await this.ChainInfoModel?.findOne({}, 'activeEra').exec();
     if(data === null) {
       throw new Error('Cannot get active Era');
@@ -332,7 +334,7 @@ export class DatabaseHandler {
 
   async saveLastFetchedBlock(blockNumber: number) {
     const result = await this.ChainInfoModel?.updateOne({}, {$set: {lastFetchedBlock: blockNumber}}, {upsert: true}).exec().catch((err)=>{
-      console.error(err);
+      logger.error(err);
     });
   }
 
@@ -355,7 +357,7 @@ export class DatabaseHandler {
       eras: eras,
       validator: id,
     }, {upsert: true}).exec().catch((err)=>{
-      console.error(err);
+      logger.error(err);
     });
   }
 
@@ -379,7 +381,7 @@ export class DatabaseHandler {
       });
       await this.UnclaimedEraInfoModel?.bulkWrite(script);
     } catch(err) {
-      console.error(err);
+      logger.error(err);
     }
   }
 
@@ -398,7 +400,7 @@ export class DatabaseHandler {
       }, []),
     }).catch((err)=>{
       if(err.code !== 11000) { // we should accept duplication key as a normal situation.
-        console.log(err);
+        logger.log(err);
       }
     });
   }
@@ -411,7 +413,7 @@ export class DatabaseHandler {
       validator: slash.validator,
     }).catch((err)=>{
       if(err.code !== 11000) { // we should accept duplication key as a normal situation.
-        console.log(err);
+        logger.log(err);
       }
     });
   }
@@ -468,29 +470,29 @@ export class DatabaseHandler {
   __validateNominationInfo(id: string, data: any) {
    
     if(!Number.isInteger(data.era)) {
-      console.error('data.era is not an integer');
-      console.error(id);
-      console.error(data);
+      logger.error('data.era is not an integer');
+      logger.error(id);
+      logger.error(data);
       return false;
     }
     if(!Array.isArray(data.exposure.others)) {
-      console.error('data.exposure is not an array');
-      console.error(id);
-      console.error(data);
+      logger.error('data.exposure is not an array');
+      logger.error(id);
+      logger.error(data);
       return false;
     }
     if(!Array.isArray(data.nominators)) {
-      console.error('data.nominators is not an array');
-      console.error(id);
-      console.error(data);
+      logger.error('data.nominators is not an array');
+      logger.error(id);
+      logger.error(data);
       return false;
     }
     for(let i = 0; i < data.exposure.others.length; i++) {
       if(data.exposure.others[i] !== undefined) {
         if(data.exposure.others[i].who === undefined || data.exposure.others[i].value === undefined) {
-          console.error('incorrect exposure format');
-          console.error(id);
-          console.error(data);
+          logger.error('incorrect exposure format');
+          logger.error(id);
+          logger.error(data);
           return false;
         }
       }

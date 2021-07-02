@@ -1,5 +1,6 @@
 import { ApiPromise, WsProvider } from '@polkadot/api';
 import { Identity, BalancedNominator, Balance, Validator, EraRewardDist, ValidatorSlash } from './types';
+import { logger } from './logger';
 
 export { ChainData };
 
@@ -28,7 +29,7 @@ class ChainData {
     const activeEra = await this.api!.query.staking.activeEra();
     if(activeEra !== undefined) {
       if (activeEra.isNone) {
-        console.log(`NO ACTIVE ERA: ${activeEra.toString()}`);
+        logger.warn(`NO ACTIVE ERA: ${activeEra.toString()}`);
         throw new Error('active era not found');
       }
       return activeEra.unwrap().index.toNumber();
@@ -39,8 +40,6 @@ class ChainData {
 
   findEraBlockHash = async (era: number) => {
     const activeEra = await this.getActiveEraIndex();
-    
-    // console.log(`activeEraIndex = ${activeEraIndex}`);
 
     if (era > activeEra) {
       throw new Error("It is a future era");
@@ -166,7 +165,6 @@ class ChainData {
           withNominations: true,
           withPrefs: true,
         }).then((validator) => {
-          // console.log(validator.stakingLedger.toString());
           return new Validator(authorityId.toString(),
             validator.exposure, validator.stakingLedger, validator.validatorPrefs);
         })
@@ -203,7 +201,6 @@ class ChainData {
           withNominations: true,
           withPrefs: true,
         }).then((validator) => {
-          // console.log(validator.stakingLedger.toString());
           return new Validator(accountId.toString(),
             validator.exposure, validator.stakingLedger, validator.validatorPrefs);
         })
@@ -241,7 +238,6 @@ class ChainData {
           withNominations: true,
           withPrefs: true,
         }).then((validator) => {
-          // console.log(validator.stakingLedger.toString());
           return new Validator(accountId.toString(),
             validator.exposure, validator.stakingLedger, validator.validatorPrefs);
         })
@@ -298,8 +294,8 @@ class ChainData {
             });
             return new BalancedNominator(nominator[0].toHuman()?.toString()!, targets, _balance);
           } catch(err) {
-            console.error(err);
-            console.log(nominator.toString());
+            logger.error(err);
+            logger.debng(nominator.toString());
             return new BalancedNominator(nominator[0].toHuman()?.toString()!, targets, _balance);
           }
         })
@@ -339,8 +335,8 @@ class ChainData {
             });
           } catch(err) {
             targets = [];
-            console.error(err);
-            console.log(nominator.toString());
+            logger.error(err);
+            logger.debug(nominator.toString());
           }
           return new BalancedNominator(nominator[0].toHuman()?.toString()!, targets, _balance);
         })

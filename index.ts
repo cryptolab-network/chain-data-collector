@@ -5,13 +5,16 @@ import { DatabaseHandler } from './src/db/database';
 import { Scheduler } from './src/scheduler';
 import path from 'path';
 import { RpcListener } from './src/event/rpcListener';
+import { logger } from './src/logger';
+
 const argv = require('yargs/yargs')(process.argv.slice(2)).argv;
 const keys = require('./config/keys');
 const KUSAMA_DECIMAL = 1000000000000;
 const POLKADOT_DECIMAL = 10000000000;
+
 (async() => {
   try {
-    console.log(argv);
+    logger.debug(argv);
     if(argv.chain !== undefined) {
       switch (argv.chain) {
         case 'kusama':
@@ -30,7 +33,7 @@ const POLKADOT_DECIMAL = 10000000000;
       initPolkadot();
     }
   } catch(err) {
-    console.error(err);
+    logger.error(err);
   }
 })();
 
@@ -47,7 +50,7 @@ async function initKusama() {
     const scheduler = new Scheduler('KUSAMA', chainData, db, cacheData);
     scheduler.start();
   } catch(err) {
-    console.error(err);
+    logger.error(err);
   }
 }
 
@@ -64,6 +67,6 @@ async function initPolkadot() {
     const polkadotScheduler = new Scheduler('POLKADOT', chainData, db, cacheData);
     polkadotScheduler.start();
   } catch(err) {
-    console.error(err);
+    logger.error(err);
   }
 }

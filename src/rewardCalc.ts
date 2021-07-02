@@ -20,7 +20,6 @@ export class RewardCalc {
     const eraRewardDist = await this.chainData.getEraRewardDist(latestFinishedEra);
     eraRewardDist.individual.forEach((point, id)=>{
       const reward = (point / eraRewardDist.total) * divide(eraTotalReward, decimals);
-      // console.log(id, point, eraRewardDist.total, eraTotalReward, reward);
       this.db.updateValidatorTotalReward(id, new ValidatorEraReward(latestFinishedEra, reward));
     });
   }

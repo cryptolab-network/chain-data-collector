@@ -4,6 +4,7 @@ import { ChainData } from './chainData';
 import { Cache } from './cacheRedis';
 import { DatabaseHandler } from './db/database';
 import { Validator } from './types';
+import { logger } from './logger';
 
 export class OneKvSummary {
   activeEra: number
@@ -192,12 +193,12 @@ export class OneKvHandler {
   async getOneKvNominators() {
     let res = await axios.get<OneKvNominatorInfo[]>(`${this.NODE_RPC_URL}/nominators`);
     if (res.status !== 200) {
-      console.log(`no data`)
+      logger.warn(`no data`)
       throw new Error('Failed to fetch 1kv nominators.');
     }
     let nominators = res.data;
     let validCandidates = await this.cachedata.fetch<OneKvSummary>('onekv').catch((err)=>{
-      console.error(err);
+      logger.error(err);
       throw new Error(err);
     });
     const activeEra = await this.chaindata.getActiveEraIndex();
@@ -221,10 +222,10 @@ export class OneKvHandler {
   }
 
   async getValidValidators(validators: (Validator | undefined)[]) {
-    console.log(`${this.NODE_RPC_URL}/candidates`);
+    logger.debug(`${this.NODE_RPC_URL}/candidates`);
     const res = await axios.get<OneKvValidatorInfo[]>(`${this.NODE_RPC_URL}/candidates`);
     if (res.status !== 200) {
-      console.log(`no data`)
+      logger.warn(`no data`)
       throw new Error(
         'Failed to fetch 1kv validators.' 
       );
@@ -238,7 +239,7 @@ export class OneKvHandler {
       const promises = valid.map(async (candidate) => {
         const validator = validators.find(v => v?.accountId === candidate.stash);
         if(validator === undefined) {
-          console.log(`cannot find ${candidate.stash} in validator set`);
+          logger.warn(`cannot find ${candidate.stash} in validator set`);
           return;
         }
         candidate.detail = validator;

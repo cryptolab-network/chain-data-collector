@@ -6,6 +6,8 @@ import { CronJob } from 'cron';
 import { BalancedNominator, Validator, Exposure, Identity, StakerPoint, ValidatorSlash, NominatorSlash } from "./types";
 import { OneKvHandler } from "./oneKvData";
 import { RewardCalc } from "./rewardCalc";
+import { logger } from './logger';
+
 const keys = require('../config/keys');
 
 let DECIMALS = 1000000000000;
@@ -49,9 +51,9 @@ export class Scheduler {
   private async rewardCalcScheduler(schedule: string) {
     const calc = new RewardCalc(this.chainData, this.db, this.cacheData);
     const rewardCalcJob = new CronJob(schedule, async () => {
-      console.log(`${this.name} Reward Calc starts`);
+      logger.info(`${this.name} Reward Calc starts`);
       await calc.calc(BigInt(DECIMALS));
-      console.log(`${this.name} Reward Calc ends`);
+      logger.info(`${this.name} Reward Calc ends`);
     }, null, true, 'America/Los_Angeles', null, true);
     rewardCalcJob.start();
   }
@@ -63,7 +65,7 @@ export class Scheduler {
       }
       this.isCaching = true;
       try {
-        console.log(`${this.name} scheduler starts`);
+        logger.info(`${this.name} scheduler starts`);
         console.time(`[${this.name}] Update active era`);
         await this.updateActiveEra();
         console.timeEnd(`[${this.name}] Update active era`);
@@ -72,7 +74,7 @@ export class Scheduler {
         const activeEra = await this.chainData.getActiveEraIndex();
         const eraReward = await this.chainData.getEraTotalReward(activeEra - 1);
         const validatorCount = await this.chainData.getCurrentValidatorCount();
-        console.log('era reward: ' + eraReward);
+        logger.info('era reward: ' + eraReward);
         const validatorWaitingInfo = await this.chainData.getValidatorWaitingInfo();
         console.timeEnd(`[${this.name}] Retrieving chain data`);
         console.time(`[${this.name}] Write Validator Data`);
@@ -139,13 +141,13 @@ export class Scheduler {
         this.cacheData.update('nominators', nominators.map((n)=>{
           return n?.exportString();
         }));
-        console.log('length ' +　validatorWaitingInfo.validators.length);
+        logger.debug('length ' +　validatorWaitingInfo.validators.length);
         await this.cacheOneKVInfo(validatorWaitingInfo.validators);
         console.timeEnd(`[${this.name}] Update Cache Data`);
-        console.log(`[${this.name}] scheduler ends`);
+        logger.info(`[${this.name}] scheduler ends`);
       } catch (err){
-        console.log(err);
-        console.log('schedule retrieving data error');
+        logger.error(err);
+        logger.error('schedule retrieving data error');
       }
       this.isCaching = false;
     }, null, true, 'America/Los_Angeles', null, true);
@@ -195,9 +197,6 @@ export class Scheduler {
         commissionChanged = 0;
       }
     }
-    // if(commissionChanged !== 0) {
-    //   console.log('commission changed:' + commissionChanged  + ' from ' + latestCommission + " to " + validator.prefs.commissionPct());
-    // }
     let erasPerDay = 1;
     if(this.name === 'KUSAMA') {
       erasPerDay = 4;
@@ -248,7 +247,7 @@ export class Scheduler {
   }
 
   private async updateHistoricalAPY() {
-    console.log(`[${this.name}] Start update Validator APY`);
+    logger.info(`[${this.name}] Start update Validator APY`);
     const validators = await this.db.getValidatorList();
     console.time(`[${this.name}] Update each validator\'s average apy`);
     const data = await this.db.getAllValidatorStatus();
@@ -279,7 +278,6 @@ export class Scheduler {
       } else {
         avgApy = 0;
       }
-      // console.log('average APY for past ' + activeEras + ' eras of ' + data[i].id + ' is ' + avgApy);
       await this.db.saveHistoricalApy(data[i].id, avgApy);
     }
     console.timeEnd(`[${this.name}] Update each validator\'s average apy`);
