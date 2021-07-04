@@ -1,7 +1,9 @@
 import { ChainData } from "./chainData";
 import { DatabaseHandler } from "./db/database";
 import { Cache } from './cacheRedis';
-import { ValidatorEraReward, ValidatorTotalReward } from "./types";
+import { ValidatorEraReward } from "./types";
+
+// eslint-disable-next-line
 const divide = require('divide-bigint');
 
 export class RewardCalc {
@@ -14,7 +16,7 @@ export class RewardCalc {
     this.db = db;
   }
 
-  async calc(decimals: bigint) {
+  async calc(decimals: bigint): Promise<void> {
     const latestFinishedEra = await this.chainData.getActiveEraIndex() - 1;
     const eraTotalReward = await this.chainData.getEraTotalReward(latestFinishedEra);
     const eraRewardDist = await this.chainData.getEraRewardDist(latestFinishedEra);

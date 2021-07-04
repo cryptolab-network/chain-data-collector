@@ -1,7 +1,10 @@
 export { Identity, BalancedNominator, Balance, Validator, Exposure, ValidatorDbSchema, NominationDbSchema, StatusChange, IdentityDbSchema, EraRewardDist };
-import type { AccountId, EraIndex as PolkadotEraIndex, Exposure as PolkadotExposure, Nominations,
-  RewardDestination, StakingLedger as PolkadotStakingLedger, ValidatorPrefs as PolkadotValidatorPrefs } from '@polkadot/types/interfaces';
-import { deprecationHandler } from 'moment';
+import type { EraIndex as PolkadotEraIndex, Exposure as PolkadotExposure,
+  StakingLedger as PolkadotStakingLedger, ValidatorPrefs as PolkadotValidatorPrefs } from '@polkadot/types/interfaces';
+import { LeanDocument } from 'mongoose';
+import { IBalance } from './db/schema';
+
+// eslint-disable-next-line
 const divide = require('divide-bigint');
 
 class Identity {
@@ -13,7 +16,7 @@ class Identity {
     this.address = address;
   }
 
-  getIdentity() {
+  getIdentity(): string {
     if(this.display === undefined || this.display === null) {
       return this.address;
     } else {
@@ -34,11 +37,25 @@ class Balance {
     this.lockedBalance = locked;
   }
 
-  exportString() {
+  exportString(): string {
+    return JSON.stringify({
+      freeBalance: __toHexString(this.freeBalance as bigint),
+      lockedBalance: __toHexString(this.lockedBalance as bigint)
+    });
+  }
+  
+  toLeanDocument(): LeanDocument<IBalance> {
     return {
       freeBalance: __toHexString(this.freeBalance as bigint),
       lockedBalance: __toHexString(this.lockedBalance as bigint)
-    }
+    };
+  }
+
+  toObject(): {freeBalance: string, lockedBalance: string} {
+    return {
+      freeBalance: __toHexString(this.freeBalance as bigint),
+      lockedBalance: __toHexString(this.lockedBalance as bigint)
+    };
   }
 }
 
@@ -52,11 +69,19 @@ class BalancedNominator {
     this.balance = balance;
   }
 
-  exportString() {
-    return {
+  exportString(): string {
+    return JSON.stringify({
       address: this.address,
       targets: this.targets,
       balance: this.balance.exportString(),
+    });
+  }
+
+  toObject(): {address: string, targets: string[], balance: {freeBalance: string, lockedBalance: string}} {
+    return {
+      address: this.address,
+      targets: this.targets,
+      balance: this.balance.toObject(),
     };
   }
 }
@@ -65,7 +90,7 @@ class BalancedNominator {
 class Validator {
   accountId: string
   exposure: Exposure
-  identity?: Identity
+  identity: Identity
   stakingLedger: StakingLedger
   prefs: ValidatorPrefs
   active: boolean
@@ -86,10 +111,11 @@ class Validator {
     this.nominators = [];
     this.activeNominators = 0;
     this.totalNominators = 0;
+    this.identity = new Identity(accountId);
   }
 
-  exportString() {
-    return {
+  exportString(): string {
+    return JSON.stringify({
       accountId: this.accountId,
       exposure: this.exposure.exportString(),
       identity: this.identity,
@@ -99,10 +125,27 @@ class Validator {
       nominators: this.nominators.map((n) => {return n.exportString()}),
       activeNominators: this.activeNominators,
       totalNominators: this.totalNominators,
-    }
+    });
   }
 
-  apy(decimals: bigint, eraReward: bigint, validatorCount: number, multiplier: number) {
+  toObject(): {accountId: string, exposure: {total: string, own: string, others: { who: string, value: string }[]}, identity: Identity,
+    stakingLedger: {stashId: string, total: string, active: string, claimedRewardCount: number}, prefs: ValidatorPrefs, active: boolean,
+    nominators: {address: string, targets: string[], balance: {freeBalance: string, lockedBalance: string}}[], activeNominators: number
+    totalNominators: number } {
+      return {
+        accountId: this.accountId,
+        exposure: this.exposure.toObject(),
+        identity: this.identity,
+        stakingLedger: this.stakingLedger.toObject(),
+        prefs: this.prefs,
+        active: this.active,
+        nominators: this.nominators.map((n) => {return n.toObject()}),
+        activeNominators: this.activeNominators,
+        totalNominators: this.totalNominators,
+      };
+    }
+
+  apy(decimals: bigint, eraReward: bigint, validatorCount: number, multiplier: number): number {
     const active = divide(this.exposure.total, decimals);
     const commission = this.prefs.commission / 10000000;
     const avgRewardOfValidator = divide(eraReward, decimals) / validatorCount;
@@ -127,14 +170,24 @@ class Exposure {
     this.others = others;
   }
 
-  exportString() {
-    return {
+  exportString(): string {
+    return JSON.stringify({
       total: __toHexString(this.total as bigint),
       own: __toHexString(this.own as bigint),
       others: this.others.map((v)=>{
         return v.exportString();
       })
-    }
+    });
+  }
+
+  toObject(): {total: string, own: string, others: { who: string, value: string }[]} {
+    return {
+      total: __toHexString(this.total as bigint),
+      own: __toHexString(this.own as bigint),
+      others: this.others.map((v)=>{
+        return v.toObject();
+      })
+    };
   }
 }
 
@@ -146,11 +199,18 @@ class IndividualExposure {
     this.value = value;
   }
 
-  exportString() {
+  exportString(): string {
+    return JSON.stringify({
+      who: this.who,
+      value: __toHexString(this.value as bigint),
+    });
+  }
+
+  toObject(): { who: string, value: string } {
     return {
       who: this.who,
       value: __toHexString(this.value as bigint),
-    }
+    };
   }
 }
 
@@ -166,13 +226,22 @@ class StakingLedger {
     this.claimedRewards =  claimedRewards;
   }
 
-  exportString() {
+  exportString(): string {
+    return JSON.stringify({
+      stashId: this.stashId,
+      total: this.total.toString(),
+      active: this.active.toString(),
+      claimedRewardCount: this.claimedRewards.length,
+    });
+  }
+
+  toObject(): {stashId: string, total: string, active: string, claimedRewardCount: number} {
     return {
       stashId: this.stashId,
       total: this.total.toString(),
       active: this.active.toString(),
       claimedRewardCount: this.claimedRewards.length,
-    }
+    };
   }
 }
 
@@ -189,8 +258,54 @@ class ValidatorPrefs {
   }
 }
 
+export class ValidatorCache {
+  id: string
+  era: number
+  exposure: Exposure
+  commission: number
+  apy: number
+  identity: Identity
+  nominators: string[]
+  commissionChanged: number
+  stakerPoints: StakerPoint[]
+  total: bigint
+
+  constructor(id: string, era: number, exposure: Exposure, commission: number,
+  apy: number, identity: Identity | undefined, nominators: string[], commissionChanged: number, stakerPoints: StakerPoint[], total: bigint) {
+    this.id = id;
+    this.era = era;
+    this.exposure = exposure;
+    this.commission = commission;
+    this.apy = apy;
+    this.identity = identity || new Identity(id);
+    this.nominators = nominators;
+    this.commissionChanged = commissionChanged;
+    this.stakerPoints = stakerPoints;
+    this.total = total;
+  }
+
+  toValidatorDbSchema(): ValidatorDbSchema {
+    return new ValidatorDbSchema(this.id, new IdentityDbSchema(this.identity.getIdentity()),
+    new StatusChange(this.commissionChanged), this.stakerPoints);
+  }
+
+  toNominationDbSchema(): NominationDbSchema {
+    return new NominationDbSchema(this.era, this.exposure, this.nominators, this.commission, this.apy, this.id, this.total);
+  }
+}
+
+export class ValidatorUnclaimedEras {
+  eras: number[]
+  id: string
+
+  constructor(id: string, eras: number[]) {
+    this.id = id;
+    this.eras = eras;
+  }
+}
+
 class ValidatorDbSchema {
-  id:  String
+  id: string
   identity: IdentityDbSchema
   statusChange: StatusChange
   info?: NominationDbSchema[]
@@ -258,10 +373,23 @@ class NominationDbSchema {
     }
   }
 
-  exportString() {
-    return {
+  exportString(): string {
+    return JSON.stringify({
       era: this.era,
       exposure: this.exposure.exportString(),
+      nominators: this.nominators,
+      commission: this.commission,
+      apy: this.apy,
+      validator: this.validator,
+      total: this.total,
+    });
+  }
+
+  toObject(): {era: number, exposure: { total: string, own: string, others: { who: string, value: string }[]},
+    nominators: string[], commission: number, apy: number, validator: string, total: string} {
+    return {
+      era: this.era,
+      exposure: this.exposure.toObject(),
       nominators: this.nominators,
       commission: this.commission,
       apy: this.apy,
@@ -334,15 +462,25 @@ export class ValidatorSlash {
 }
 
 export class NominatorSlash {
-  address: String
-  era: Number
-  total: String
-  validator: String
-  constructor(address: String, era: Number, total: String, validator: String) {
+  address: string
+  era: number
+  total: string
+  validator: string
+  constructor(address: string, era: number, total: string, validator: string) {
     this.address = address;
     this.era = era;
     this.total = total;
     this.validator = validator;
+  }
+}
+
+export class AllValidatorNominator {
+  validators: Validator[]
+  balancedNominators: BalancedNominator[]
+
+  constructor(validators: Validator[], balancedNominators: BalancedNominator[]) {
+    this.validators = validators;
+    this.balancedNominators = balancedNominators;
   }
 }
 

@@ -1,8 +1,9 @@
-import { model, Schema, Model, Document, Decimal128 } from 'mongoose';
-import { Identity, StakerPoint, StatusChange, ValidatorTotalReward } from '../types';
+import { model, Schema, Model, Document } from 'mongoose';
+import { Identity, IdentityDbSchema, StakerPoint, StatusChange, ValidatorTotalReward } from '../types';
 export { ValidatorModel, ValidatorSchema, NominationSchema, NominatorSchema,
-  NominationModel, ChainInfoSchema, ChainInfoModel, UnclaimedEraInfoSchema, IUnclaimedEraInfo,
-  IStashInfo, StashInfoSchema };
+  NominationModel, ChainInfoSchema, ChainInfoModel, IChainInfo, UnclaimedEraInfoSchema, IUnclaimedEraInfo,
+  IStashInfo, StashInfoSchema, IEraReward, IValidator, INomination, IValidatorSlash,
+  IValidatorSlashNominator, INominator, INominatorSlash, IBalance };
 
 interface IStashInfo extends Document {
   stash: string;
@@ -42,7 +43,7 @@ const UnclaimedEraInfoSchema: Schema = new Schema({
 interface IChainInfo extends Document {
   activeEra: number;
   lastFetchedBlock: number;
-};
+}
 
 const ChainInfoSchema: Schema = new Schema({
   activeEra: Number,
@@ -51,14 +52,15 @@ const ChainInfoSchema: Schema = new Schema({
 
 const ChainInfoModel: Model<IChainInfo> = model('ChainInfo', ChainInfoSchema);
 
+
 interface IValidator extends Document {
   id: string;
-  identity: Identity;
+  identity: IdentityDbSchema;
   statusChange: StatusChange;
   rewards: ValidatorTotalReward;
   stakerPoints: StakerPoint;
   averageApy: number;
-};
+}
 
 const ValidatorSchema: Schema = new Schema({
   id: String,
@@ -89,10 +91,10 @@ ValidatorSchema.index({
 const ValidatorModel: Model<IValidator> = model('Validator', ValidatorSchema);
 
 interface INomination extends Document {
-  era: Number;
+  era: number;
   identity: Identity;
   statusChange: StatusChange;
-};
+}
 
 const NominationSchema: Schema = new Schema({
   era: Number,
@@ -119,6 +121,17 @@ NominationSchema.index({
   'validator': 1
 }, {name: 'validator_'});
 
+interface INominator extends Document {
+  address: string;
+  targets: string[];
+  balance: IBalance;
+}
+
+interface IBalance extends Document {
+  lockedBalance: string;
+  freeBalance: string;
+}
+
 const NominatorSchema: Schema = new Schema({
   address: String,
   targets: [String],
@@ -135,12 +148,12 @@ interface IValidatorSlash extends Document {
   era: number;
   total: string;
   others: IValidatorSlashNominator;
-};
+}
 
 interface IValidatorSlashNominator extends Document {
-  address: String;
-  value: String;
-};
+  address: string;
+  value: string;
+}
 
 export const ValidatorSlashSchema: Schema = new Schema({
   address: String,
@@ -155,6 +168,13 @@ export const ValidatorSlashSchema: Schema = new Schema({
 });
 
 ValidatorSlashSchema.index({'address': 1, 'era': 1}, {unique: true});
+
+interface INominatorSlash extends Document {
+  address: string;
+  era: number;
+  total: string;
+  validator: string;
+}
 
 export const NominatorSlashSchema: Schema = new Schema({
   address: String,

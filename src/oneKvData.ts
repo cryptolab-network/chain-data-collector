@@ -20,8 +20,8 @@ export class OneKvSummary {
     this.valid = valid;
   }
 
-  toJSON() {
-    return {
+  toJSON(): string {
+    return JSON.stringify({
       activeEra: this.activeEra,
       validatorCount: this.validatorCount,
       electedCount: this.electedCount,
@@ -41,13 +41,13 @@ export class OneKvSummary {
           activeNominators: v.activeNominators,
           totalNominators: v.totalNominators,
           stakingInfo: {
-            stakingLedger: v.detail?.stakingLedger.exportString(),
+            stakingLedger: v.detail?.stakingLedger.toObject(),
             validatorPrefs: v.detail?.prefs,
             stashId: v.stash,
           }
         };
       }),
-    }
+    });
   }
 }
 
@@ -141,10 +141,10 @@ class Identity {
 }
 
 class OneKvNominatorInfo {
-  current: string[] | OneKvNominatedInfoDetail[]
+  current: OneKvNominatedInfoDetail[]
   lastNomination: number
   address: string
-  constructor(current: string[] | OneKvNominatedInfoDetail[], lastNomination: number, address: string) {
+  constructor(current: OneKvNominatedInfoDetail[], lastNomination: number, address: string) {
     this.current = current;
     this.lastNomination = lastNomination;
     this.address = address;
@@ -182,29 +182,29 @@ export class OneKvHandler {
   chaindata: ChainData
   cachedata: Cache
   db: DatabaseHandler
-  NODE_RPC_URL: String
-  constructor(chaindata: ChainData, cachedata: Cache, db: DatabaseHandler, url: String) {
+  NODE_RPC_URL: string
+  constructor(chaindata: ChainData, cachedata: Cache, db: DatabaseHandler, url: string) {
     this.chaindata = chaindata;
     this.cachedata = cachedata;
     this.db = db;
     this.NODE_RPC_URL = url;
   }
 
-  async getOneKvNominators() {
-    let res = await axios.get<OneKvNominatorInfo[]>(`${this.NODE_RPC_URL}/nominators`);
+  async getOneKvNominators(): Promise<OneKvNominatorSummary> {
+    const res = await axios.get<OneKvNominatorInfo[]>(`${this.NODE_RPC_URL}/nominators`);
     if (res.status !== 200) {
       logger.warn(`no data`)
       throw new Error('Failed to fetch 1kv nominators.');
     }
     let nominators = res.data;
-    let validCandidates = await this.cachedata.fetch<OneKvSummary>('onekv').catch((err)=>{
+    const validCandidates = await this.cachedata.fetch<OneKvSummary>('onekv').catch((err)=>{
       logger.error(err);
       throw new Error(err);
     });
     const activeEra = await this.chaindata.getActiveEraIndex();
-    nominators = nominators.map((nominator, index, array) => {
-      const current = (nominator.current as any[]).map((stash, index, array) => {
-        let candidate = validCandidates.valid.find((c, index, array) => {
+    nominators = nominators.map((nominator) => {
+      const current = nominator.current.map((stash) => {
+        const candidate = validCandidates.valid.find((c) => {
           return stash.stash === c.stash;
         });
         if (candidate === undefined) {
@@ -221,7 +221,7 @@ export class OneKvHandler {
     return summary;
   }
 
-  async getValidValidators(validators: (Validator | undefined)[]) {
+  async getValidValidators(validators: (Validator | undefined)[]): Promise<OneKvSummary> {
     logger.debug(`${this.NODE_RPC_URL}/candidates`);
     const res = await axios.get<OneKvValidatorInfo[]>(`${this.NODE_RPC_URL}/candidates`);
     if (res.status !== 200) {
@@ -233,8 +233,8 @@ export class OneKvHandler {
     let valid = res.data;
     const eraValidatorInfo = await this.chaindata.getValidators();
     if(eraValidatorInfo !== undefined) {
-      const activeValidators = eraValidatorInfo.activeStash;
-      const activeEra = eraValidatorInfo.activeEra;
+      const activeValidators = eraValidatorInfo;
+      const activeEra = await this.chaindata.getActiveEraIndex();
       let electedCount = 0;
       const promises = valid.map(async (candidate) => {
         const validator = validators.find(v => v?.accountId === candidate.stash);
@@ -253,7 +253,7 @@ export class OneKvHandler {
         candidate.totalNominators = validator?.totalNominators || 0;
         return candidate;
       });
-      let newValid = await Promise.all(promises);
+      const newValid = await Promise.all(promises);
       valid = newValid.filter(function(v) {
         return v !== undefined && v.valid === true;
       }) as OneKvValidatorInfo[];

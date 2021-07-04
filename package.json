@@ -23,6 +23,7 @@
   "homepage": "https://github.com/cryptolab-network/chain-data-collector#readme",
   "dependencies": {
     "@polkadot/api": "^4.16.2",
+    "@types/yargs": "^17.0.1",
     "async-lock": "^1.2.8",
     "axios": "^0.21.1",
     "cron": "^1.8.2",
@@ -31,7 +32,7 @@
     "mongoose": "^5.12.3",
     "pino": "^6.11.3",
     "redis": "^3.1.2",
-    "yargs": "^16.2.0"
+    "yargs": "^17.0.1"
   },
   "devDependencies": {
     "@types/async-lock": "^1.1.2",
@@ -39,6 +40,10 @@
     "@types/cron": "^1.7.2",
     "@types/mongoose": "^5.10.4",
     "@types/pino": "^6.3.8",
-    "@types/redis": "^2.8.28"
+    "@types/redis": "^2.8.28",
+    "@typescript-eslint/eslint-plugin": "^4.28.1",
+    "@typescript-eslint/parser": "^4.28.1",
+    "eslint": "^7.29.0",
+    "typescript": "^4.3.5"
   }
 }

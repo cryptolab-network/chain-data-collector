@@ -1,26 +1,34 @@
-import { Mongoose, Model, Document } from 'mongoose';
-import { ValidatorDbSchema, NominationDbSchema, StatusChange, IdentityDbSchema, ValidatorEraReward, BalancedNominator, Balance, Exposure, ValidatorSlash, NominatorSlash } from '../types';
+import { Mongoose, Model } from 'mongoose';
+import { ValidatorDbSchema, NominationDbSchema, IdentityDbSchema, ValidatorEraReward,
+  BalancedNominator, ValidatorSlash, NominatorSlash, ValidatorCache, ValidatorUnclaimedEras } from '../types';
 import { ValidatorSchema, NominationSchema, NominatorSchema,
-  ChainInfoSchema, UnclaimedEraInfoSchema, StashInfoSchema, ValidatorSlashSchema, NominatorSlashSchema } from './schema';
+  ChainInfoSchema, UnclaimedEraInfoSchema, StashInfoSchema, ValidatorSlashSchema, NominatorSlashSchema,
+  IValidator, 
+  INomination,
+  IChainInfo,
+  IUnclaimedEraInfo,
+  IStashInfo,
+  INominator,
+  IValidatorSlash,
+  INominatorSlash} from './schema';
 import AsyncLock from 'async-lock';
 import { logger } from '../logger';
 
 export class DatabaseHandler {
-  ValidatorModel?: Model<Document<any, {}>, {}>
-  NominationModel?: Model<Document<any, {}>, {}>
-  ChainInfoModel?: Model<Document<any, {}>, {}>
-  UnclaimedEraInfoModel?: Model<Document<any, {}>, {}>
-  StashInfoModel?: Model<Document<any, {}>, {}>
-  NominatorModel?: Model<Document<any, {}>, {}>
-  ValidatorSlashModel?: Model<Document<any, {}>, {}>
-  NominatorSlashModel?: Model<Document<any, {}>, {}>
+  ValidatorModel?: Model<IValidator>
+  NominationModel?: Model<INomination>
+  ChainInfoModel?: Model<IChainInfo>
+  UnclaimedEraInfoModel?: Model<IUnclaimedEraInfo>
+  StashInfoModel?: Model<IStashInfo>
+  NominatorModel?: Model<INominator>
+  ValidatorSlashModel?: Model<IValidatorSlash>
+  NominatorSlashModel?: Model<INominatorSlash>
   lock: AsyncLock
   constructor() {
     this.lock = new AsyncLock({maxPending: 1000});
   }
 
-  connect(name: string, pass: string, ip: string, port: number, dbName: string) {
-    const self = this;
+  connect(name: string, pass: string, ip: string, port: number, dbName: string): void {
     let url = `mongodb://`;
     if(process.env.NODE_ENV === 'production' || process.env.NODE_ENV === 'test') {
       url = url + `${name}:${pass}@`;
@@ -32,43 +40,41 @@ export class DatabaseHandler {
       useCreateIndex: true,
       poolSize: 10
     });
-    this.ValidatorModel = db.model('Validator_' + dbName, ValidatorSchema, 'validator');
-    this.NominationModel = db.model('Nomination_' + dbName, NominationSchema, 'nomination');
-    this.ChainInfoModel = db.model('ChainInfo_' + dbName, ChainInfoSchema, 'chainInfo');
-    this.UnclaimedEraInfoModel = db.model('UnclaimedEraInfo_' + dbName, UnclaimedEraInfoSchema, 'unclaimedEraInfo');
-    this.StashInfoModel = db.model('StashInfo_' + dbName, StashInfoSchema, 'stashInfo' );
-    this.NominatorModel = db.model('Nominator_'+ dbName, NominatorSchema, 'nominator');
-    this.ValidatorSlashModel = db.model('ValidatorSlash_' + dbName, ValidatorSlashSchema,  'validatorSlash');
-    this.NominatorSlashModel = db.model('NominatorSlash_' + dbName, NominatorSlashSchema,  'nominatorSlash');
+    this.ValidatorModel = db.model<IValidator>('Validator_' + dbName, ValidatorSchema, 'validator');
+    this.NominationModel = db.model<INomination>('Nomination_' + dbName, NominationSchema, 'nomination');
+    this.ChainInfoModel = db.model<IChainInfo>('ChainInfo_' + dbName, ChainInfoSchema, 'chainInfo');
+    this.UnclaimedEraInfoModel = db.model<IUnclaimedEraInfo>('UnclaimedEraInfo_' + dbName, UnclaimedEraInfoSchema, 'unclaimedEraInfo');
+    this.StashInfoModel = db.model<IStashInfo>('StashInfo_' + dbName, StashInfoSchema, 'stashInfo' );
+    this.NominatorModel = db.model<INominator>('Nominator_'+ dbName, NominatorSchema, 'nominator');
+    this.ValidatorSlashModel = db.model<IValidatorSlash>('ValidatorSlash_' + dbName, ValidatorSlashSchema,  'validatorSlash');
+    this.NominatorSlashModel = db.model<INominatorSlash>('NominatorSlash_' + dbName, NominatorSlashSchema,  'nominatorSlash');
     db.on('error', console.error.bind(console, 'connection error:'));
     db.once('open', async function() {
       logger.info('DB connected');
     });
   }
 
-  async getValidatorList() {
-    let validators = await this.ValidatorModel?.find({}).lean().exec() as ValidatorDbSchema[];
+  async getValidatorList(): Promise<string[]> {
+    const validators = await this.ValidatorModel?.find({}).lean().exec() as unknown as ValidatorDbSchema[];
     return validators.reduce((acc: string[], v: ValidatorDbSchema)=>{
       acc.push(v.id.toString());
       return acc;
     }, []);
   }
 
-  async getValidatorStatusOfEra(id: string, era: number) {
-    let validator = await this.ValidatorModel?.findOne({
+  async getValidatorStatusOfEra(id: string, era: number): Promise<ValidatorDbSchema> {
+    const validator = await this.ValidatorModel?.findOne({
       id: id
-    }).lean().exec() as ValidatorDbSchema;
+    }).lean().exec() as unknown as ValidatorDbSchema;
 
     if (validator === null) {
-      return {
-        validator
-      }
+      return validator;
     }
     
     const nomination = await this.NominationModel?.findOne({
       era: era,
       validator: id
-    }).lean().exec() as NominationDbSchema;
+    }).lean().exec() as unknown as NominationDbSchema;
 
     if (nomination !== null) {
       if(validator !== undefined) {
@@ -76,12 +82,10 @@ export class DatabaseHandler {
       }
     }
 
-    return {
-      validator
-    }
+    return validator;
   }
 
-  async getValidatorStatus(id: string) {
+  async getValidatorStatus(id: string): Promise<ValidatorDbSchema> {
     const validator = await this.ValidatorModel?.aggregate([
       {$match: {
         'id': id
@@ -92,16 +96,12 @@ export class DatabaseHandler {
         foreignField: 'validator_',
         as: 'info'
       }}
-    ]).exec();
+    ]).exec() as unknown as ValidatorDbSchema;
 
-    const result = this.__validatorSerialize(validator);
-    return {
-      validator: validator,
-      objectData: result
-    };
+    return validator;
   }
 
-  async getAllValidatorStatus() {
+  async getAllValidatorStatus(): Promise<ValidatorDbSchema[]> {
     const validator = await this.ValidatorModel?.aggregate([
       {$lookup: {
         from: 'nomination',
@@ -109,12 +109,12 @@ export class DatabaseHandler {
         foreignField: 'validator',
         as: 'info'
       }}
-    ]).exec();
+    ]).exec() as unknown as ValidatorDbSchema[];
 
     return validator;
   }
 
-  async saveHistoricalApy(id: string, apy: number) {
+  async saveHistoricalApy(id: string, apy: number): Promise<void> {
     await this.ValidatorModel?.updateOne({
       id: id
     }, {
@@ -139,7 +139,7 @@ export class DatabaseHandler {
     ]).exec();
 
     const validators = nominations.map((nomination: { data: { statusChange: any; id: string, identity: {
-      display: String };}[]; nominators: any; era: any; exposure: any; commission: any; apy: any; }) => {
+      display: string };}[]; nominators: any; era: any; exposure: any; commission: any; apy: any; }) => {
       return {
         id: nomination.data[0].id,
         identity: nomination.data[0].identity,
@@ -159,18 +159,18 @@ export class DatabaseHandler {
     }
   }
 
-  async saveValidatorNominationData(id: string, data: any) {
+  async saveValidatorNominationData(id: string, data: ValidatorCache): Promise<boolean>{
     try {
       const isDataValid = this.__validateNominationInfo(id, data);
       if(!isDataValid) {
         return false;
       }
-      const { validator, objectData } = await this.getValidatorStatus(id);
-      const nData = new NominationDbSchema(data.era, data.exposure, data.nominators, data.commission, data.apy, id, data.total);
-      if(validator === undefined || validator.length === 0) {
-        const vData = new ValidatorDbSchema(id, new IdentityDbSchema(data.identity.getIdentity()), new StatusChange(0), data.stakerPoints);
-        await this.ValidatorModel?.create(vData).catch((err: any) => logger.error(err));
-        await this.NominationModel?.create(nData.exportString()).catch((err: any) => logger.error(err));
+      const validator = await this.getValidatorStatus(id);
+      const nData = data.toNominationDbSchema();
+      if(validator === undefined) {
+        const vData = data.toValidatorDbSchema();
+        await this.ValidatorModel?.create(vData).catch((err: Error) => logger.error(err));
+        await this.NominationModel?.create(nData.toObject()).catch((err: Error) => logger.error(err));
       } else {
         await this.ValidatorModel?.findOneAndUpdate({
           id: id
@@ -178,15 +178,15 @@ export class DatabaseHandler {
           id: id,
           identity: { display: data.identity.getIdentity()}, 
           'statusChange.commission': data.commissionChanged
-        }, {useFindAndModify: false}).exec();
+        }, {useFindAndModify: false})?.exec();
         const nomination = await this.NominationModel?.findOne({era: data.era, validator: id}).exec();
         if(nomination !== null) { // the data of this era exist, dont add a new one
-          const result = await this.NominationModel?.findOneAndUpdate({
+          await this.NominationModel?.findOneAndUpdate({
             era: data.era, validator: id,
-          }, nData.exportString(), {useFindAndModify: false}).exec().catch((err)=>{logger.error(err)});
+          }, nData.toObject(), {useFindAndModify: false})?.exec().catch((err)=>{logger.error(err)});
           return true;
         }
-        await this.NominationModel?.create(nData.exportString());
+        await this.NominationModel?.create(nData.toObject());
       }
       return true;
     } catch (err) {
@@ -196,11 +196,10 @@ export class DatabaseHandler {
     }
   }
 
-  async saveMultipleValidatorNominationData(data: any[], era: number) {
-    
+  async saveMultipleValidatorNominationData(data: ValidatorCache[]): Promise<void> {
     try {
       // validator
-      let script: any[] = [];
+      let script: unknown[] = [];
       data.forEach((validator) => {
         script.push(
           {
@@ -231,7 +230,7 @@ export class DatabaseHandler {
             updateOne :
             {
               "filter": {validator: validator.id, era: validator.era},
-              "update": nData.exportString(),
+              "update": nData.toObject(),
               "upsert": true,
             }
           }
@@ -244,7 +243,7 @@ export class DatabaseHandler {
 
   }
 
-  async saveNominators(data: BalancedNominator[], era: number) {
+  async saveNominators(data: BalancedNominator[]): Promise<void> {
     try {
       const script: any[] = [];
       data.forEach((nominator) => {
@@ -256,7 +255,7 @@ export class DatabaseHandler {
               "update": {
                   address: nominator.address,
                   targets: nominator.targets,
-                  balance: nominator.balance.exportString(),
+                  balance: nominator.balance.toLeanDocument(),
                 },
               "upsert": true,
             }
@@ -269,7 +268,7 @@ export class DatabaseHandler {
     }
   }
 
-  async saveNominator(data: BalancedNominator, era: number) {
+  async saveNominator(data: BalancedNominator): Promise<void> {
     const nominator = await this.NominatorModel?.findOne({
       address: data.address,
     }).exec().catch((err)=>{
@@ -296,7 +295,7 @@ export class DatabaseHandler {
       if(balance.freeBalance !== data.balance.freeBalance || balance.lockedBalance !== data.balance.lockedBalance) {
         this.NominatorModel?.updateOne({address: data.address}, {
           $set: { 
-            balance: data.balance.exportString(),
+            balance: data.balance.toLeanDocument()
           },
         }).exec().catch((err)=>{
           logger.error(err);
@@ -307,21 +306,21 @@ export class DatabaseHandler {
         {
           address: data.address,
           targets: data.targets,
-          balance: data.balance.exportString(),
+          balance: data.balance.toLeanDocument(),
         }).catch((err)=>{
           logger.error(err);
       });
     }
   }
 
-  async saveActiveEra(era: number) {
+  async saveActiveEra(era: number): Promise<void> {
     logger.debug('save active era');
-    const result = await this.ChainInfoModel?.updateOne({}, {$set: {activeEra: era}}, {upsert: true}).exec().catch((err)=>{
+    await this.ChainInfoModel?.updateOne({}, {$set: {activeEra: era}}, {upsert: true}).exec().catch((err)=>{
       logger.error(err);
     });
   }
 
-  async getActiveEra() {
+  async getActiveEra(): Promise<number> {
     logger.debug('get active era');
     const data = await this.ChainInfoModel?.findOne({}, 'activeEra').exec();
     if(data === null) {
@@ -332,13 +331,13 @@ export class DatabaseHandler {
     }
   }
 
-  async saveLastFetchedBlock(blockNumber: number) {
-    const result = await this.ChainInfoModel?.updateOne({}, {$set: {lastFetchedBlock: blockNumber}}, {upsert: true}).exec().catch((err)=>{
+  async saveLastFetchedBlock(blockNumber: number): Promise<void> {
+    await this.ChainInfoModel?.updateOne({}, {$set: {lastFetchedBlock: blockNumber}}, {upsert: true}).exec().catch((err)=>{
       logger.error(err);
     });
   }
 
-  async getLastFetchedRewardBlock(minBlockNumber: number) {
+  async getLastFetchedRewardBlock(minBlockNumber: number): Promise<number> {
     const chainInfo = await this.ChainInfoModel?.findOne({}, 'lastFetchedBlock').exec();
     let blockNumber = minBlockNumber;
     if(chainInfo === null) {
@@ -352,8 +351,8 @@ export class DatabaseHandler {
     return blockNumber;
   }
 
-  async saveValidatorUnclaimedEras(id: string, eras: number[]) {
-    const result = await this.UnclaimedEraInfoModel?.updateOne({validator: id}, {
+  async saveValidatorUnclaimedEras(id: string, eras: number[]): Promise<void> {
+    await this.UnclaimedEraInfoModel?.updateOne({validator: id}, {
       eras: eras,
       validator: id,
     }, {upsert: true}).exec().catch((err)=>{
@@ -361,7 +360,7 @@ export class DatabaseHandler {
     });
   }
 
-  async saveMultipleValidatorUnclaimedEras(data: any[]) {
+  async saveMultipleValidatorUnclaimedEras(data: ValidatorUnclaimedEras[]): Promise<void> {
     try {
       const script: any[] = [];
       data.forEach((validator) => {
@@ -385,7 +384,7 @@ export class DatabaseHandler {
     }
   }
 
-  async saveValidatorSlash(id: string, slash: ValidatorSlash) {
+  async saveValidatorSlash(id: string, slash: ValidatorSlash): Promise<void> {
     await this.ValidatorSlashModel?.create({
       address: id,
       era: slash.era,
@@ -405,7 +404,7 @@ export class DatabaseHandler {
     });
   }
 
-  async saveNominatorSlash(id: string, slash: NominatorSlash) {
+  async saveNominatorSlash(id: string, slash: NominatorSlash): Promise<void>{
     await this.NominatorSlashModel?.create({
       address: id,
       era: slash.era,
@@ -418,17 +417,16 @@ export class DatabaseHandler {
     });
   }
 
-  async updateValidatorTotalReward(id: string, reward: ValidatorEraReward) {
+  async updateValidatorTotalReward(id: string, reward: ValidatorEraReward): Promise<void> {
     const validator = await this.ValidatorModel?.findOne({
       id: id,
-    }).lean().exec() as ValidatorDbSchema;
+    }).lean().exec() as unknown as ValidatorDbSchema;
     if(validator === null) {
       return;
     }
     let start = 0;
     let total = reward.reward;
     if(validator.rewards !== undefined) {
-
       if(validator.rewards.end >= reward.era) {
         // updated, finish
         return;
@@ -437,11 +435,11 @@ export class DatabaseHandler {
       if(reward.era < validator.rewards.start) {
         start = reward.era;
       }
-      if(!Number.isNaN(validator.rewards!.total) && validator.rewards!.total !== undefined) {
-        total = validator.rewards!.total + reward.reward;
+      if(!Number.isNaN(validator.rewards.total) && validator.rewards.total !== undefined) {
+        total = validator.rewards.total + reward.reward;
       }
     }
-    const result = await this.ValidatorModel?.updateOne({
+    await this.ValidatorModel?.updateOne({
       id: id,
     }, {
       $set: {
@@ -455,20 +453,19 @@ export class DatabaseHandler {
   }
 
   
-  async saveRewards(stash: string, era: number, amount: number, timestamp: number) {
+  async saveRewards(stash: string, era: number, amount: number, timestamp: number): Promise<void> {
     await this.StashInfoModel?.create({
       stash: stash,
       era: era,
       amount: amount,
       timestamp: timestamp,
-    }).catch((err)=>{
+    }).catch(()=>{
       // it is ok
       //console.error(err);
     });
   }
 
-  __validateNominationInfo(id: string, data: any) {
-   
+  __validateNominationInfo(id: string, data: ValidatorCache): boolean {
     if(!Number.isInteger(data.era)) {
       logger.error('data.era is not an integer');
       logger.error(id);
@@ -499,39 +496,4 @@ export class DatabaseHandler {
     }
     return true;
   }
-
-  __validatorSerialize(validator: any) {
-    const result = [];
-
-    for (let i=0; i<validator.length; i++) {
-      let info = [];
-      for (let j=0; j<validator[i].info.length; j++) {
-        info.push({
-          nominators: validator[i].info[j].nominators,
-          era: validator[i].info[j].era,
-          exposure: validator[i].info[j].exposure,
-          commission: validator[i].info[j].commission,
-          apy: validator[i].info[j].apy
-        })
-        
-      }
-      result.push({
-        id: validator[i].id,
-        identity: validator[i].identity,
-        statusChange: validator[i].statusChange,
-        info: info
-      })
-    }
-    return result;
-  }
 }
-
-const __toHexString = (v: bigint) => {
-  let hex = v.toString(16);
-  if(hex.length % 2 === 1) {
-    hex = '0' + hex;
-  }
-  hex = '0x' + hex;
-  return hex;
-}
-

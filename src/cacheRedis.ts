@@ -3,8 +3,8 @@ import { logger } from './logger';
 
 export class Cache {
   client: redis.RedisClient
-  coin: String
-  constructor(coin: String, host: string, port: number) {
+  coin: string
+  constructor(coin: string, host: string, port: number) {
     this.client = redis.createClient({
       host: host,
       port: port,
@@ -18,21 +18,31 @@ export class Cache {
     this.coin = coin;
   }
 
-  async fetch<T>(type: string) {
+  async fetch<T>(type: string): Promise<T> {
     return new Promise<T>((resolve, reject)=>{
       this.client.get(this.coin + type, (err, data)=>{
         if(err !== null) {
           reject(err);
         } else {
-          resolve(JSON.parse(data!) as T);
+          if(data) {
+            resolve(JSON.parse(data) as T);
+          } else {
+            reject('data is null');
+          }
         }
       });
     });
   }
 
-  async update<T>(type: string, data: T) {
+  async update<T>(type: string, data: T): Promise<void> {
     return new Promise<void>((resolve, reject)=>{
-      this.client.set(this.coin + type, JSON.stringify(data), (err)=>{
+      let str = '';
+      if(typeof data !== 'string') {
+        str = JSON.stringify(data);
+      } else {
+        str = data;
+      }
+      this.client.set(this.coin + type, str, (err)=>{
         if(err !== null) {
           reject(err);
         } else {

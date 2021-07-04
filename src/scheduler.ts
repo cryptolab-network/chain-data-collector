@@ -1,20 +1,21 @@
 import { ChainData } from "./chainData";
 import { Cache } from './cacheRedis';
-import { OneKvNominatorSummary, OneKvSummary } from './oneKvData';
+import { OneKvNominatorSummary } from './oneKvData';
 import { DatabaseHandler } from "./db/database";
 import { CronJob } from 'cron';
-import { BalancedNominator, Validator, Exposure, Identity, StakerPoint, ValidatorSlash, NominatorSlash } from "./types";
+import { Validator, StakerPoint, NominatorSlash, BalancedNominator, ValidatorCache, ValidatorUnclaimedEras } from "./types";
 import { OneKvHandler } from "./oneKvData";
 import { RewardCalc } from "./rewardCalc";
 import { logger } from './logger';
 
+// eslint-disable-next-line
 const keys = require('../config/keys');
 
 let DECIMALS = 1000000000000;
 
-let nominatorCache = {};
-let validatorCache = {};
-let unclaimedEraCache = {};
+let nominatorCache = new Map<string, BalancedNominator>();
+let validatorCache = new Map<string, ValidatorCache>();
+let unclaimedEraCache = new Map<string, ValidatorUnclaimedEras>();
 
 export class Scheduler {
   chainData: ChainData
@@ -22,8 +23,8 @@ export class Scheduler {
   db: DatabaseHandler
   isCaching: boolean
   oneKvHandler: OneKvHandler
-  name: String
-  constructor(name: String, chainData: ChainData, db: DatabaseHandler, cacheData: Cache) {
+  name: string
+  constructor(name: string, chainData: ChainData, db: DatabaseHandler, cacheData: Cache) {
     this.chainData = chainData;
     this.cacheData = cacheData;
     this.db = db;
@@ -38,7 +39,7 @@ export class Scheduler {
     this.name = name;
   }
 
-  start() {
+  start(): void {
     if(this.name === 'KUSAMA') {
       this.rewardCalcScheduler('0 2,8,14,20 * * *');
       this.fetchDataScheduler('*/20 * * * *');
@@ -78,9 +79,9 @@ export class Scheduler {
         const validatorWaitingInfo = await this.chainData.getValidatorWaitingInfo();
         console.timeEnd(`[${this.name}] Retrieving chain data`);
         console.time(`[${this.name}] Write Validator Data`);
-        nominatorCache = {};
-        validatorCache = {};
-        unclaimedEraCache = {};
+        nominatorCache = new Map<string, BalancedNominator>();
+        validatorCache = new Map<string, ValidatorCache>();
+        unclaimedEraCache = new Map<string, ValidatorUnclaimedEras>();
         for(let i = 0; i < validatorWaitingInfo.validators.length; i++) {
           const validator = validatorWaitingInfo.validators[i];
           if(validator !== undefined && eraReward !== undefined) {
@@ -88,60 +89,66 @@ export class Scheduler {
           }
         }
         let i = 1;
-        let tmp = [];
-        for (const address in validatorCache) {
-          tmp.push((validatorCache as any)[address]);
+        let tmp = new Array<ValidatorCache>();
+        for (const [, v] of validatorCache) {
+          if(v) {
+            tmp.push(v);
+          }
           if (i % 100 === 0) {
-            await this.db.saveMultipleValidatorNominationData(tmp, activeEra);
-            tmp = [];
+            await this.db.saveMultipleValidatorNominationData(tmp);
+            tmp = new Array<ValidatorCache>();
           }
           i++;
         }
         if (tmp.length > 0) {
-          await this.db.saveMultipleValidatorNominationData(tmp, activeEra);
+          await this.db.saveMultipleValidatorNominationData(tmp);
         }
         i = 1;
-        tmp = [];
-        for (const address in unclaimedEraCache) {
-          tmp.push((unclaimedEraCache as any)[address]);
+        let tmp2 = new Array<ValidatorUnclaimedEras>();
+        for (const [, u] of unclaimedEraCache) {
+          if(u) {
+            tmp2.push(u);
+          }
           if (i % 100 === 0) {
-            await this.db.saveMultipleValidatorUnclaimedEras(tmp);
-            tmp = [];
+            await this.db.saveMultipleValidatorUnclaimedEras(tmp2);
+            tmp2 = new Array<ValidatorUnclaimedEras>();
           }
           i++;
         }
-        if (tmp.length > 0) {
-          await this.db.saveMultipleValidatorUnclaimedEras(tmp);
+        if (tmp2.length > 0) {
+          await this.db.saveMultipleValidatorUnclaimedEras(tmp2);
         }
         console.timeEnd(`[${this.name}] Write Validator Data`);
         console.time(`[${this.name}] Write Nominator Data`);
         i = 1;
-        tmp = [];
-        for (const address in nominatorCache) {
-          tmp.push((nominatorCache as any)[address]);
+        let tmp3 = new Array<BalancedNominator>();
+        for (const [, n] of nominatorCache) {
+          if(n) {
+            tmp3.push(n);
+          }
           if (i % 500 === 0) {
-            await this.db.saveNominators(tmp, activeEra);
-            tmp = [];
+            await this.db.saveNominators(tmp3);
+            tmp3 = new Array<BalancedNominator>();
           }
           i++;
         }
-        if (tmp.length > 0) {
-          await this.db.saveNominators(tmp, activeEra);
+        if (tmp3.length > 0) {
+          await this.db.saveNominators(tmp3);
         }
         console.timeEnd(`[${this.name}] Write Nominator Data`);
         console.time(`[${this.name}] Update Cache Data`);
         this.cacheData.update('validDetailAll', { 
           valid: validatorWaitingInfo.validators.map(v => {
             if(v !== undefined) {
-              return v.exportString();
+              return v.toObject();
             }
           }) 
         });
         const nominators = validatorWaitingInfo.balancedNominators;
         this.cacheData.update('nominators', nominators.map((n)=>{
-          return n?.exportString();
+          return n?.toObject();
         }));
-        logger.debug('length ' +　validatorWaitingInfo.validators.length);
+        logger.debug('length ' + validatorWaitingInfo.validators.length);
         await this.cacheOneKVInfo(validatorWaitingInfo.validators);
         console.timeEnd(`[${this.name}] Update Cache Data`);
         logger.info(`[${this.name}] scheduler ends`);
@@ -156,13 +163,14 @@ export class Scheduler {
 
   private async cacheOneKVInfo(validators: (Validator | undefined)[]) {
     const oneKvSummary = await this.oneKvHandler.getValidValidators(validators);
-    this.cacheData.update<any>('onekv', oneKvSummary.toJSON());
+    this.cacheData.update<string>('onekv', oneKvSummary.toJSON());
     const oneKvNominators = await this.oneKvHandler.getOneKvNominators();
     this.cacheData.update<OneKvNominatorSummary>('oneKvNominators', oneKvNominators);
   }
 
   private async updateActiveEra() {
     const era = await this.chainData.getActiveEraIndex();
+    // eslint-disable-next-line
     const dbEra = await this.db.getActiveEra();
     // if(era !== dbEra) {
       await this.updateHistoricalAPY();
@@ -178,12 +186,12 @@ export class Scheduler {
       return point.points.toNumber() > 0;
     });
     const unclaimedEras = activeEras?.filter((point) => !validator.stakingLedger.claimedRewards.includes(point.era));
-    const lastEraInfo = await this.db.getValidatorStatusOfEra(validator?.accountId!, era - 1);
+    const lastEraInfo = await this.db.getValidatorStatusOfEra(validator.accountId, era - 1);
     let latestCommission = 0;
     if(lastEraInfo !== undefined) {
-      if(lastEraInfo.validator !== undefined && lastEraInfo.validator !== null) {
-        if(lastEraInfo.validator.info !== undefined) {
-          latestCommission = lastEraInfo.validator.info![0].commission;
+      if(lastEraInfo !== undefined && lastEraInfo !== null) {
+        if(lastEraInfo.info !== undefined) {
+          latestCommission = lastEraInfo.info[0].commission;
         }
       }
     }
@@ -202,74 +210,61 @@ export class Scheduler {
       erasPerDay = 4;
     }
     const apy = validator.apy(BigInt(DECIMALS), BigInt(eraReward), validatorCount, erasPerDay);
-    const data = {
-      era: era,
-      exposure: validator.exposure,
-      commission: validator.prefs.commissionPct(),
-      apy: apy,
-      identity: validator.identity,
-      nominators: validator.nominators.map((n)=>{
-        return n.address;
-      }),
-      total: validator.nominators.reduce((acc, n)=>{
-        acc += n.balance.lockedBalance;
-        return acc;
-      }, BigInt(0)),
-      commissionChanged: commissionChanged,
-      id: validator.accountId,
-      stakerPoints: stakerPoints.map((stakerPoint) => {
-        return new StakerPoint(stakerPoint.era.toNumber(), stakerPoint.points.toNumber());
-      }),
-    };
+    const data = new ValidatorCache(validator.accountId, era, validator.exposure, validator.prefs.commissionPct(),
+    apy, validator.identity, validator.nominators.map((n)=>{
+      return n.address;
+    }), commissionChanged, stakerPoints.map((stakerPoint) => {
+      return new StakerPoint(stakerPoint.era.toNumber(), stakerPoint.points.toNumber());
+    }), validator.nominators.reduce((acc, n)=>{
+      acc += n.balance.lockedBalance;
+      return acc;
+    }, BigInt(0)));
     this.saveUnclaimedEras(validator.accountId, unclaimedEras?.map((era)=>{
       return era.era.toNumber();
-    })!);
+    }));
     this.saveValidatorNominationData(validator.accountId, data);
-    this.saveNominators(validator, data, era);
+    this.saveNominators(validator);
   }
 
   private async saveUnclaimedEras(validator: string, unclaimedEras: number[]) {
-    (unclaimedEraCache as any)[validator] = {
-      eras: unclaimedEras,
-      id: validator,
-    };
+    unclaimedEraCache.set(validator, new ValidatorUnclaimedEras(validator, unclaimedEras));
   }
 
-  private async saveValidatorNominationData(validator: string, data: { era: number; exposure: Exposure; commission: number;
-    apy: number; identity: Identity | undefined; nominators: string[]; commissionChanged: number; stakerPoints: StakerPoint[]}) {
-    (validatorCache as any)[validator] = data;
+  private async saveValidatorNominationData(validator: string, data: ValidatorCache) {
+    validatorCache.set(validator, data);
   }
 
-  private saveNominators(validator: Validator, data: { era: number; exposure: Exposure; commission: number; apy: number; identity: Identity | undefined; nominators: string[]; commissionChanged: number; }, era: number) {
+  private saveNominators(validator: Validator) {
     for (let i = 0; i < validator.nominators.length; i++) {
-      (nominatorCache as any)[validator.nominators[i].address] = validator.nominators[i];
+      nominatorCache.set(validator.nominators[i].address, validator.nominators[i]);
     }
   }
 
   private async updateHistoricalAPY() {
     logger.info(`[${this.name}] Start update Validator APY`);
-    const validators = await this.db.getValidatorList();
-    console.time(`[${this.name}] Update each validator\'s average apy`);
+    // const validators = await this.db.getValidatorList();
+    console.time(`[${this.name}] Update each validator's average apy`);
     const data = await this.db.getAllValidatorStatus();
     for(let i = 0; i < data.length; i++) {
-      //const data = await this.db.getValidatorStatus(validators[i]);
       const info = data[i].info;
-      const totalEras = info.length;
-      let sum = 0;
       let avgApy = 0;
+      let sum = 0;
       let activeEras = 0;
-      if(totalEras > 84) {
-        for(let j = totalEras - 85; j < totalEras - 1; j++) {
-          if(info[j].exposure.total > 0) {
-            sum += info[j].apy;
-            activeEras++;
+      if(info) {
+        const totalEras = info.length;
+        if(totalEras > 84) {
+          for(let j = totalEras - 85; j < totalEras - 1; j++) {
+            if(info[j].exposure.total > 0) {
+              sum += info[j].apy;
+              activeEras++;
+            }
           }
-        }
-      } else {
-        for(let j = 0; j < totalEras; j++) {
-          if(info[j].exposure.total > 0) {
-            sum += info[j].apy;
-            activeEras++;
+        } else {
+          for(let j = 0; j < totalEras; j++) {
+            if(info[j].exposure.total > 0) {
+              sum += info[j].apy;
+              activeEras++;
+            }
           }
         }
       }
@@ -280,7 +275,7 @@ export class Scheduler {
       }
       await this.db.saveHistoricalApy(data[i].id, avgApy);
     }
-    console.timeEnd(`[${this.name}] Update each validator\'s average apy`);
+    console.timeEnd(`[${this.name}] Update each validator's average apy`);
   }
 
   private async updateUnappliedSlashes(era: number) {

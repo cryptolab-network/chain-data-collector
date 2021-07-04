@@ -1,19 +1,23 @@
 import { ApiPromise } from "@polkadot/api";
 import { ChainData } from "../chainData";
 import { DatabaseHandler } from "../db/database";
+// eslint-disable-next-line
 const divide = require('divide-bigint');
 import { logger } from '../logger';
 
 export class RpcListener {
   api: ApiPromise
   db: DatabaseHandler
-  isFetchingRewards: Boolean
+  isFetchingRewards: boolean
   decimals: number
-  firstTime: Boolean
+  firstTime: boolean
   currentEra: number
   chain: string
   constructor(chainData: ChainData, db: DatabaseHandler, decimals: number, chain: string) {
-    this.api = chainData.api!;
+    if(!chainData.api) {
+      throw new Error("chainData API is not initialized");
+    }
+    this.api = chainData.api;
     this.isFetchingRewards = false;
     this.db = db;
     this.decimals = decimals;
@@ -22,7 +26,7 @@ export class RpcListener {
     this.chain = chain;
   }
 
-  async start() {
+  async start(): Promise<void> {
     logger.info('RPC listener starts');
     await this.api.rpc.chain.subscribeFinalizedHeads(async (blockHeader) => {
       const blockNumber = blockHeader.number.toNumber();
@@ -31,6 +35,7 @@ export class RpcListener {
       );
     });
   }
+
   private async onFinalizedBlock(blockNumber: number) {
     if (blockNumber % 300 == 0 || this.firstTime === true) {
       this.firstTime = false;
@@ -63,7 +68,7 @@ export class RpcListener {
             for (const reward of rewards) {
               await this.db.saveRewards(reward.targetStashAddress, era.unwrap().index.toNumber(),
                 divide(BigInt(reward.amount), BigInt(this.decimals)), reward.timestamp);
-            };
+            }
             await this.db.saveLastFetchedBlock(i);
           } catch (error) {
             logger.error(`Error while fetching rewards in block #${i}: ${error}`);
@@ -75,7 +80,7 @@ export class RpcListener {
     } finally {
       this.isFetchingRewards = false;
       logger.info('Fetch reward loop ends');
-    };
+    }
   }
 
   private async getRewardsInBlock(blockHash: string) {

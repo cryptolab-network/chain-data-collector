@@ -1,13 +1,15 @@
 import { ChainData } from './src/chainData';
-// import { Cache } from './src/cacheData';
 import { Cache } from './src/cacheRedis';
 import { DatabaseHandler } from './src/db/database';
 import { Scheduler } from './src/scheduler';
-import path from 'path';
 import { RpcListener } from './src/event/rpcListener';
 import { logger } from './src/logger';
+import yargs from 'yargs/yargs';
 
-const argv = require('yargs/yargs')(process.argv.slice(2)).argv;
+const argv = yargs(process.argv.slice(2)).options({
+  chain: { type: 'string', default: 'none' },
+}).parseSync();
+// eslint-disable-next-line
 const keys = require('./config/keys');
 const KUSAMA_DECIMAL = 1000000000000;
 const POLKADOT_DECIMAL = 10000000000;
@@ -41,7 +43,6 @@ async function initKusama() {
   try {
     const chainData = new ChainData(keys.KUSAMA_WSS);
     await chainData.connect();
-    const cacheFolder = path.join(__dirname, './cache/kusama');
     const cacheData = new Cache('KSM', keys.REDIS_URL, keys.REDIS_PORT);
     const db = new DatabaseHandler();
     await db.connect(keys.MONGO_ACCOUNT, keys.MONGO_PASSWORD, keys.MONGO_URL, keys.MONGO_PORT, keys.MONGO_DBNAME);
@@ -58,7 +59,6 @@ async function initPolkadot() {
   try {
     const chainData = new ChainData(keys.POLKADOT_WSS);
     await chainData.connect();
-    const cacheFolder = path.join(__dirname, './cache/polkadot');
     const cacheData = new Cache('DOT', keys.REDIS_URL, keys.REDIS_PORT);
     const db = new DatabaseHandler();
     await db.connect(keys.MONGO_ACCOUNT, keys.MONGO_PASSWORD, keys.MONGO_URL, keys.MONGO_PORT, keys.MONGO_DBNAME_POLKADOT);
