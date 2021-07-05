@@ -1,3 +1,4 @@
+import moment from 'moment';
 import redis from 'redis';
 import { logger } from './logger';
 
@@ -46,6 +47,7 @@ export class Cache {
         if(err !== null) {
           reject(err);
         } else {
+          this.client.set(this.coin + type + '_timestamp', moment().unix().toString());
           resolve();
         }
       });
