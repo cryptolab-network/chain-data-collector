@@ -176,7 +176,12 @@ export class DatabaseHandler {
           id: id
         }, {
           id: id,
-          identity: { display: data.identity.getIdentity()}, 
+          identity: {
+            display: data.identity.getIdentity(),
+            parent: data.identity.getParent(),
+            sub: data.identity.getSub(),
+            isVerified: data.identity.isVerified(),
+          }, 
           'statusChange.commission': data.commissionChanged
         }, {useFindAndModify: false})?.exec();
         const nomination = await this.NominationModel?.findOne({era: data.era, validator: id}).exec();
@@ -208,7 +213,8 @@ export class DatabaseHandler {
               "filter": {id: validator.id},
               "update": {
                   id: validator.id,
-                  identity: new IdentityDbSchema(validator.identity.getIdentity()),
+                  identity: new IdentityDbSchema(validator.identity.getIdentity(), validator.identity.getParent(),
+                  validator.identity.getSub(), validator.identity.isVerified()),
                   statusChange: {
                     commission: validator.commissionChanged
                   },

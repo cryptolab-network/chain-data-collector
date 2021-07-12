@@ -65,7 +65,10 @@ interface IValidator extends Document {
 const ValidatorSchema: Schema = new Schema({
   id: String,
   identity: {
-    display: String
+    display: String,
+    parent: String,
+    sub: String,
+    isVerified: Boolean,
   },
   statusChange: {
     commission: Number, // 0: no change, 1: up, 2: down

@@ -9,23 +9,43 @@ const divide = require('divide-bigint');
 
 class Identity {
   address: string
-  display?: string
-  displayParent?: string
+  private parent?: string
+  private sub?: string
+  private verified: boolean
   
   constructor(address: string) {
     this.address = address;
+    this.verified = false;
+  }
+
+  set(parent: string | undefined, sub: string | undefined, isVerified: boolean): void {
+    this.parent = parent;
+    this.sub = sub;
+    this.verified = isVerified;
   }
 
   getIdentity(): string {
-    if(this.display === undefined || this.display === null) {
+    if(this.parent === undefined || this.sub === null) {
       return this.address;
     } else {
-      if(this.displayParent !== undefined && this.displayParent !== null) {
-        return this.displayParent + '/' + this.display;
+      if(this.parent !== undefined && this.sub !== null) {
+        return this.parent + '/' + this.sub;
       } else {
-        return this.display;
+        return this.parent;
       }
     }
+  }
+
+  getParent(): string | undefined {
+    return this.parent;
+  }
+
+  getSub(): string | undefined {
+    return this.sub;
+  }
+
+  isVerified(): boolean {
+    return this.verified;
   }
 }
 
@@ -285,7 +305,9 @@ export class ValidatorCache {
   }
 
   toValidatorDbSchema(): ValidatorDbSchema {
-    return new ValidatorDbSchema(this.id, new IdentityDbSchema(this.identity.getIdentity()),
+    return new ValidatorDbSchema(this.id,
+      new IdentityDbSchema(this.identity.getIdentity(), this.identity.getParent(),
+      this.identity.getSub(), this.identity.isVerified()),
     new StatusChange(this.commissionChanged), this.stakerPoints);
   }
 
@@ -328,8 +350,14 @@ class StatusChange {
 
 class IdentityDbSchema {
   display: string
-  constructor(display: string) {
+  parent?: string
+  isVerified: boolean
+  sub?: string
+  constructor(display: string, parent: string | undefined, sub: string | undefined, isVerified: boolean) {
     this.display = display;
+    this.parent = parent;
+    this.sub = sub;
+    this.isVerified = isVerified;
   }
 }
 

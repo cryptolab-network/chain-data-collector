@@ -1,5 +1,5 @@
 import { ApiPromise, WsProvider } from '@polkadot/api';
-import { DeriveStakerPoints } from '@polkadot/api-derive/types';
+import { DeriveAccountRegistration, DeriveStakerPoints } from '@polkadot/api-derive/types';
 import { Identity, BalancedNominator, Balance, Validator, EraRewardDist, ValidatorSlash, AllValidatorNominator } from './types';
 import { logger } from './logger';
 import { Vec } from '@polkadot/types';
@@ -220,9 +220,7 @@ class ChainData {
         if(validator.accountId !== undefined) {
           if(this.api) {
             const { identity } = await this.api.derive.accounts.info(validator.accountId);
-            const _identity = new Identity(validator.accountId.toString());
-            _identity.display = identity.display;
-            _identity.displayParent = identity.displayParent;
+            const _identity = this.createIdentity(validator.accountId.toString(), identity);
             validator.identity = _identity;
             validator.totalNominators = 0;
             validator.activeNominators = validator.exposure.others.length;
@@ -258,9 +256,7 @@ class ChainData {
         if(nextElect.accountId !== undefined) {
           if(this.api) {
             const { identity } = await this.api.derive.accounts.info(nextElect.accountId);
-            const _identity = new Identity(nextElect.accountId.toString());
-            _identity.display = identity.display;
-            _identity.displayParent = identity.displayParent;
+            const _identity = this.createIdentity(nextElect.accountId.toString(), identity);
             nextElect.identity = _identity;
             nextElect.totalNominators = 0;
             nextElect.activeNominators = nextElect.exposure.others.length;
@@ -275,9 +271,7 @@ class ChainData {
       const intention = waitingInfo.info[i];
       if(this.api) {
         const { identity } = await this.api.derive.accounts.info(intention.accountId);
-        const _identity = new Identity(intention.accountId.toString());
-        _identity.display = identity.display;
-        _identity.displayParent = identity.displayParent;
+        const _identity = this.createIdentity(intention.accountId.toString(), identity);
         const validator = new Validator(intention.accountId.toString(), intention.exposure,
           intention.stakingLedger, intention.validatorPrefs);
         validator.identity = _identity;
@@ -327,6 +321,20 @@ class ChainData {
       });
     });
     return new AllValidatorNominator(validators, balancedNominators);
+  }
+
+  private createIdentity(accountId: string, identity: DeriveAccountRegistration) {
+    const _identity = new Identity(accountId);
+    let isVerified = false;
+    if (identity.judgements !== undefined && identity.judgements !== null) {
+      identity.judgements.forEach((j) => {
+        if (j[1].isReasonable || j[1].isKnownGood) {
+          isVerified = true;
+        }
+      });
+    }
+    _identity.set(identity.displayParent?.toString(), identity.display?.toString(), isVerified);
+    return _identity;
   }
 
   async getNominators(): Promise<BalancedNominator[]> {
