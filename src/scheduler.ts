@@ -171,12 +171,15 @@ export class Scheduler {
   private async updateActiveEra() {
     const era = await this.chainData.getActiveEraIndex();
     // eslint-disable-next-line
-    const dbEra = await this.db.getActiveEra();
-    // if(era !== dbEra) {
-      await this.updateHistoricalAPY();
-      await this.updateUnappliedSlashes(era - 1);
-    // }
-    await this.db.saveActiveEra(era);
+    try {
+      const dbEra = await this.db.getActiveEra();
+      if(era !== dbEra) {
+        await this.updateHistoricalAPY();
+        await this.updateUnappliedSlashes(era - 1);
+      }
+    } finally {
+      await this.db.saveActiveEra(era);
+    }
   }
 
   private async makeValidatorInfoOfEra(validator: Validator, eraReward: string,

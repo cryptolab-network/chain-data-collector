@@ -28,13 +28,13 @@ export class DatabaseHandler {
     this.lock = new AsyncLock({maxPending: 1000});
   }
 
-  connect(name: string, pass: string, ip: string, port: number, dbName: string): void {
+  async connect(name: string, pass: string, ip: string, port: number, dbName: string): Promise<void> {
     let url = `mongodb://`;
     if(process.env.NODE_ENV === 'production' || process.env.NODE_ENV === 'test') {
       url = url + `${name}:${pass}@`;
     }
     url += `${ip}:${port}/${dbName}`;
-    const db = new Mongoose().createConnection(url, {
+    const db = await new Mongoose().createConnection(url, {
       useNewUrlParser: true, 
       useUnifiedTopology: true,
       useCreateIndex: true,
