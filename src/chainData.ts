@@ -214,21 +214,33 @@ class ChainData {
     
     console.timeEnd('[ChainData] Retrieving staking for validators');
     console.time('[ChainData] Retrieving identity for validators');
+    let promises1 = [];
     for(let i = 0; i < validators.length; i++) {
       const validator = validators[i];
       if(validator !== undefined) {
         if(validator.accountId !== undefined) {
           if(this.api) {
-            const { identity } = await this.api.derive.accounts.info(validator.accountId);
-            const _identity = this.createIdentity(validator.accountId.toString(), identity);
-            validator.identity = _identity;
-            validator.totalNominators = 0;
-            validator.activeNominators = validator.exposure.others.length;
-            const balances = await this.api?.derive.balances.all(validator.accountId);
-            validator.selfStake = balances.lockedBalance.toBigInt();
+            promises1.push(this.api.derive.accounts.info(validator.accountId).then(({ identity }) => {
+              const _identity = this.createIdentity(validator.accountId.toString(), identity);
+              validator.identity = _identity;
+              validator.totalNominators = 0;
+              validator.activeNominators = validator.exposure.others.length;
+              return this.api?.derive.balances.all(validator.accountId);
+            }).then((balances) => {
+              if(balances) {
+                validator.selfStake = balances.lockedBalance.toBigInt();
+              }
+            }));
           }
         }
       }
+      if (i % 20 === 0) {
+        await Promise.all(promises1);
+        promises1 = [];
+      }
+    }
+    if(promises1.length > 0) {
+      await Promise.all(promises1);
     }
     console.timeEnd('[ChainData] Retrieving identity for validators');
     console.time('[ChainData] Retrieving next elected');
@@ -290,7 +302,7 @@ class ChainData {
     validators = validators.concat(intentions);
     console.time('[ChainData] Retrieving balance for waitings');
     const balancedNominators = new Array<BalancedNominator>();
-    const promises = [];
+    let promises = [];
     for(let i = 0; i < nominators.length; i++) {
       const nominator = nominators[i];
       if(!nominator[0]) {
@@ -313,8 +325,14 @@ class ChainData {
           balancedNominators.push(new BalancedNominator(nominatorId, targets, _balance));
         }
       }));
+      if (i % 20 === 0) {
+        await Promise.all(promises);
+        promises = [];
+      }
     }
-    await Promise.all(promises);
+    if (promises.length > 0) {
+      await Promise.all(promises);
+    }
     console.timeEnd('[ChainData] Retrieving balance for waitings');
     balancedNominators.forEach(nominator => {
       nominator?.targets.forEach(target => {
