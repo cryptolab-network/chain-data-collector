@@ -116,6 +116,7 @@ const NominationSchema: Schema = new Schema({
   apy: Number,
   validator: String,
   total: {type: String, set: toHexString},
+  selfStake: {type: String, set: toHexString},
 });
 
 const NominationModel: Model<INomination> = model('Nomination', NominationSchema);

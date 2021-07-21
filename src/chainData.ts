@@ -224,6 +224,8 @@ class ChainData {
             validator.identity = _identity;
             validator.totalNominators = 0;
             validator.activeNominators = validator.exposure.others.length;
+            const balances = await this.api?.derive.balances.all(validator.accountId);
+            validator.selfStake = balances.lockedBalance.toBigInt();
           }
         }
       }
@@ -260,6 +262,8 @@ class ChainData {
             nextElect.identity = _identity;
             nextElect.totalNominators = 0;
             nextElect.activeNominators = nextElect.exposure.others.length;
+            const balances = await this.api?.derive.balances.all(nextElect.accountId);
+            nextElect.selfStake = balances.lockedBalance.toBigInt();
           }
         }
       }
@@ -277,6 +281,8 @@ class ChainData {
         validator.identity = _identity;
         validator.totalNominators = 0;
         validator.activeNominators = 0;
+        const balances = await this.api?.derive.balances.all(intention.accountId);
+        validator.selfStake = balances.lockedBalance.toBigInt();
         intentions.push(validator);
       }
     }

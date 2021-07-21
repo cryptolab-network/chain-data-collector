@@ -44,11 +44,21 @@ export class OneKvSummary {
             stakingLedger: v.detail?.stakingLedger.toObject(),
             validatorPrefs: v.detail?.prefs,
             stashId: v.stash,
-          }
+          },
+          selfStake: __toHexString(v.selfStake),
         };
       }),
     });
   }
+}
+
+const __toHexString = (v: bigint) => {
+  let hex = v.toString(16);
+  if(hex.length % 2 === 1) {
+    hex = '0' + hex;
+  }
+  hex = '0x' + hex;
+  return hex;
 }
 
 class OneKvValidatorInfo {
@@ -66,6 +76,7 @@ class OneKvValidatorInfo {
   totalNominators: number
   detail?: Validator
   valid: boolean
+  selfStake: bigint
   constructor(aggregate: Aggregate,
     rank: number,
     unclaimedEra: number[],
@@ -87,6 +98,7 @@ class OneKvValidatorInfo {
     this.activeNominators = 0;
     this.totalNominators = 0;
     this.valid = false;
+    this.selfStake = BigInt(0);
   }
 }
 
@@ -251,6 +263,7 @@ export class OneKvHandler {
         }
         candidate.activeNominators = validator?.activeNominators || 0;
         candidate.totalNominators = validator?.totalNominators || 0;
+        candidate.selfStake = validator?.selfStake;
         return candidate;
       });
       const newValid = await Promise.all(promises);

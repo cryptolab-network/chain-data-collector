@@ -230,7 +230,7 @@ export class DatabaseHandler {
       script = [];
       data.forEach((validator) => {
         const nData = new NominationDbSchema(validator.era, validator.exposure, validator.nominators,
-          validator.commission, validator.apy, validator.id, validator.total);
+          validator.commission, validator.apy, validator.id, validator.total, validator.selfStake);
         script.push(
           {
             updateOne :

@@ -25,13 +25,15 @@ class Identity {
   }
 
   getIdentity(): string {
-    if(this.parent === undefined || this.sub === null) {
+    if(this.parent === undefined && this.sub === null) {
       return this.address;
     } else {
       if(this.parent !== undefined && this.sub !== null) {
         return this.parent + '/' + this.sub;
+      } else if (this.parent === undefined && this.sub !== undefined) {
+        return this.sub;
       } else {
-        return this.parent;
+        return this.address;
       }
     }
   }
@@ -117,6 +119,7 @@ class Validator {
   nominators: BalancedNominator[]
   activeNominators: number
   totalNominators: number
+  selfStake: bigint
   constructor(accountId: string, exposure: PolkadotExposure, stakingLedger: PolkadotStakingLedger, prefs: PolkadotValidatorPrefs) {
     this.accountId = accountId;
     const others: IndividualExposure[] = [];
@@ -132,6 +135,7 @@ class Validator {
     this.activeNominators = 0;
     this.totalNominators = 0;
     this.identity = new Identity(accountId);
+    this.selfStake = BigInt(0);
   }
 
   exportString(): string {
@@ -145,13 +149,14 @@ class Validator {
       nominators: this.nominators.map((n) => {return n.exportString()}),
       activeNominators: this.activeNominators,
       totalNominators: this.totalNominators,
+      selfStake: __toHexString(this.selfStake as bigint),
     });
   }
 
   toObject(): {accountId: string, exposure: {total: string, own: string, others: { who: string, value: string }[]}, identity: Identity,
     stakingLedger: {stashId: string, total: string, active: string, claimedRewardCount: number}, prefs: ValidatorPrefs, active: boolean,
     nominators: {address: string, targets: string[], balance: {freeBalance: string, lockedBalance: string}}[], activeNominators: number
-    totalNominators: number } {
+    totalNominators: number, selfStake: string } {
       return {
         accountId: this.accountId,
         exposure: this.exposure.toObject(),
@@ -162,6 +167,7 @@ class Validator {
         nominators: this.nominators.map((n) => {return n.toObject()}),
         activeNominators: this.activeNominators,
         totalNominators: this.totalNominators,
+        selfStake: __toHexString(this.selfStake as bigint),
       };
     }
 
@@ -289,9 +295,11 @@ export class ValidatorCache {
   commissionChanged: number
   stakerPoints: StakerPoint[]
   total: bigint
+  selfStake: bigint
 
   constructor(id: string, era: number, exposure: Exposure, commission: number,
-  apy: number, identity: Identity | undefined, nominators: string[], commissionChanged: number, stakerPoints: StakerPoint[], total: bigint) {
+  apy: number, identity: Identity | undefined, nominators: string[], commissionChanged: number,
+  stakerPoints: StakerPoint[], total: bigint, selfStake: bigint) {
     this.id = id;
     this.era = era;
     this.exposure = exposure;
@@ -302,6 +310,7 @@ export class ValidatorCache {
     this.commissionChanged = commissionChanged;
     this.stakerPoints = stakerPoints;
     this.total = total;
+    this.selfStake = selfStake;
   }
 
   toValidatorDbSchema(): ValidatorDbSchema {
@@ -312,7 +321,8 @@ export class ValidatorCache {
   }
 
   toNominationDbSchema(): NominationDbSchema {
-    return new NominationDbSchema(this.era, this.exposure, this.nominators, this.commission, this.apy, this.id, this.total);
+    return new NominationDbSchema(this.era, this.exposure, this.nominators,
+      this.commission, this.apy, this.id, this.total, this.selfStake);
   }
 }
 
@@ -387,7 +397,9 @@ class NominationDbSchema {
   apy: number
   validator: string
   total: string
-  constructor(era: number, exposure: Exposure, nominators: string[], commission: number, apy: number, validator: string, total: string | bigint) {
+  selfStake: string
+  constructor(era: number, exposure: Exposure, nominators: string[], commission: number,
+    apy: number, validator: string, total: string | bigint, selfStake: string | bigint) {
     this.era = era;
     this.exposure = exposure;
     this.nominators = nominators;
@@ -398,6 +410,11 @@ class NominationDbSchema {
       this.total = __toHexString(total);
     } else {
       this.total = total;
+    }
+    if(typeof selfStake === 'bigint') {
+      this.selfStake = __toHexString(selfStake);
+    } else {
+      this.selfStake = selfStake;
     }
   }
 
@@ -410,11 +427,12 @@ class NominationDbSchema {
       apy: this.apy,
       validator: this.validator,
       total: this.total,
+      selfStake: this.selfStake,
     });
   }
 
   toObject(): {era: number, exposure: { total: string, own: string, others: { who: string, value: string }[]},
-    nominators: string[], commission: number, apy: number, validator: string, total: string} {
+    nominators: string[], commission: number, apy: number, validator: string, total: string, selfStake: string} {
     return {
       era: this.era,
       exposure: this.exposure.toObject(),
@@ -423,6 +441,7 @@ class NominationDbSchema {
       apy: this.apy,
       validator: this.validator,
       total: this.total,
+      selfStake: this.selfStake
     };
   }
 }
