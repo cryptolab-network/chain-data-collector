@@ -14,7 +14,12 @@ export class OneKvSummary {
   valid: OneKvValidatorInfo[]
   constructor(activeEra: number, electedCount: number, valid: OneKvValidatorInfo[]) {
     this.activeEra = activeEra;
-    this.validatorCount = valid.length;
+    this.validatorCount = valid.reduce((acc, v) => {
+      if (v.valid) {
+        acc++;
+      }
+      return acc;
+    }, 0);
     this.electedCount = electedCount;
     this.electionRate = (electedCount / valid.length),
     this.valid = valid;
@@ -45,6 +50,8 @@ export class OneKvSummary {
             validatorPrefs: v.detail?.prefs,
             stashId: v.stash,
           },
+          valid: v.valid,
+          validity: v.validity,
           selfStake: __toHexString(v.selfStake),
         };
       }),
@@ -59,6 +66,13 @@ const __toHexString = (v: bigint) => {
   }
   hex = '0x' + hex;
   return hex;
+}
+
+class Validity {
+  details: string
+  constructor(details: string) {
+    this.details = details;
+  }
 }
 
 class OneKvValidatorInfo {
@@ -77,6 +91,7 @@ class OneKvValidatorInfo {
   detail?: Validator
   valid: boolean
   selfStake: bigint
+  validity: Validity[]
   constructor(aggregate: Aggregate,
     rank: number,
     unclaimedEra: number[],
@@ -99,6 +114,7 @@ class OneKvValidatorInfo {
     this.totalNominators = 0;
     this.valid = false;
     this.selfStake = BigInt(0);
+    this.validity = [];
   }
 }
 
@@ -268,7 +284,7 @@ export class OneKvHandler {
       });
       const newValid = await Promise.all(promises);
       valid = newValid.filter(function(v) {
-        return v !== undefined && v.valid === true;
+        return v !== undefined;
       }) as OneKvValidatorInfo[];
       const oneKvSummary = new OneKvSummary(activeEra, electedCount, valid);
       return oneKvSummary;
