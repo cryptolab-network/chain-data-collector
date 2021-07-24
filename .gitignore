@@ -4,3 +4,4 @@ log.txt
 src/**/*.js
 index.js
 config/dev.js
+build/
