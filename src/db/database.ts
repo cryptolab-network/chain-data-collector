@@ -43,7 +43,6 @@ export class DatabaseHandler {
 
     let options = {};
     if (keys.MONGO_SSL) {
-      url += `?replicaSet=rs0`;
       const pem = fs.readFileSync(keys.MONGO_SSL_CA);
       options = {
         ssl: true,
