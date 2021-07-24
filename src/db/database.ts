@@ -17,8 +17,6 @@ import {
 } from './schema';
 import AsyncLock from 'async-lock';
 import { logger } from '../logger';
-// eslint-disable-next-line
-// const keys = require('../../config/keys');
 import { keys } from '../config/keys';
 import fs from 'fs';
 
@@ -36,9 +34,6 @@ export class DatabaseHandler {
     this.lock = new AsyncLock({ maxPending: 1000 });
   }
 
-  // mongodb://stagingDbUser:<insertYourPassword>@staging-docdb-2021-07-24-03-06-22.cluster-ccygw8drjspj.eu-central-1.docdb.amazonaws.com:27017/
-  // ?ssl=true&ssl_ca_certs=rds-combined-ca-bundle.pem&replicaSet=rs0&readPreference=secondaryPreferred&retryWrites=false
-
   async connect(name: string, pass: string, ip: string, port: number, dbName: string): Promise<void> {
     let url = `mongodb://`;
     if (process.env.NODE_ENV === 'production' || process.env.NODE_ENV === 'test') {
@@ -48,7 +43,7 @@ export class DatabaseHandler {
 
     let options = {};
     if (keys.MONGO_SSL) {
-      // url += `?replicaSet=rs0`;
+      url += `?replicaSet=rs0`;
       const pem = fs.readFileSync(keys.MONGO_SSL_CA);
       options = {
         ssl: true,
@@ -67,8 +62,6 @@ export class DatabaseHandler {
         poolSize: 10
       }
     }
-    console.log(url);
-    console.log(options);
 
     const db = await new Mongoose().createConnection(url, options);
     this.ValidatorModel = db.model<IValidator>('Validator_' + dbName, ValidatorSchema, 'validator');

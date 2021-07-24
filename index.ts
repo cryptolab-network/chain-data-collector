@@ -45,7 +45,6 @@ async function initKusama() {
     await chainData.connect();
     const cacheData = new Cache('KSM', keys.REDIS_URL, keys.REDIS_PORT);
     const db = new DatabaseHandler();
-    console.log(keys);
     await db.connect(keys.MONGO_ACCOUNT, keys.MONGO_PASSWORD, keys.MONGO_URL, keys.MONGO_PORT, keys.MONGO_DBNAME);
     const rpcListener = new RpcListener(chainData, db, KUSAMA_DECIMAL, 'KSM');
     rpcListener.start();
