@@ -1,18 +1,26 @@
 import { Mongoose, Model } from 'mongoose';
-import { ValidatorDbSchema, NominationDbSchema, IdentityDbSchema, ValidatorEraReward,
-  BalancedNominator, ValidatorSlash, NominatorSlash, ValidatorCache, ValidatorUnclaimedEras } from '../types';
-import { ValidatorSchema, NominationSchema, NominatorSchema,
+import {
+  ValidatorDbSchema, NominationDbSchema, IdentityDbSchema, ValidatorEraReward,
+  BalancedNominator, ValidatorSlash, NominatorSlash, ValidatorCache, ValidatorUnclaimedEras
+} from '../types';
+import {
+  ValidatorSchema, NominationSchema, NominatorSchema,
   ChainInfoSchema, UnclaimedEraInfoSchema, StashInfoSchema, ValidatorSlashSchema, NominatorSlashSchema,
-  IValidator, 
+  IValidator,
   INomination,
   IChainInfo,
   IUnclaimedEraInfo,
   IStashInfo,
   INominator,
   IValidatorSlash,
-  INominatorSlash} from './schema';
+  INominatorSlash
+} from './schema';
 import AsyncLock from 'async-lock';
 import { logger } from '../logger';
+// eslint-disable-next-line
+// const keys = require('../../config/keys');
+import { keys } from '../config/keys';
+import fs from 'fs';
 
 export class DatabaseHandler {
   ValidatorModel?: Model<IValidator>
@@ -25,38 +33,61 @@ export class DatabaseHandler {
   NominatorSlashModel?: Model<INominatorSlash>
   lock: AsyncLock
   constructor() {
-    this.lock = new AsyncLock({maxPending: 1000});
+    this.lock = new AsyncLock({ maxPending: 1000 });
   }
+
+  // mongodb://stagingDbUser:<insertYourPassword>@staging-docdb-2021-07-24-03-06-22.cluster-ccygw8drjspj.eu-central-1.docdb.amazonaws.com:27017/
+  // ?ssl=true&ssl_ca_certs=rds-combined-ca-bundle.pem&replicaSet=rs0&readPreference=secondaryPreferred&retryWrites=false
 
   async connect(name: string, pass: string, ip: string, port: number, dbName: string): Promise<void> {
     let url = `mongodb://`;
-    if(process.env.NODE_ENV === 'production' || process.env.NODE_ENV === 'test') {
+    if (process.env.NODE_ENV === 'production' || process.env.NODE_ENV === 'test') {
       url = url + `${name}:${pass}@`;
     }
     url += `${ip}:${port}/${dbName}`;
-    const db = await new Mongoose().createConnection(url, {
-      useNewUrlParser: true, 
-      useUnifiedTopology: true,
-      useCreateIndex: true,
-      poolSize: 10
-    });
+
+    let options = {};
+    if (keys.MONGO_SSL) {
+      // url += `?replicaSet=rs0`;
+      const pem = fs.readFileSync(keys.MONGO_SSL_CA);
+      options = {
+        ssl: true,
+        sslCA: pem,
+        sslValidate: false,
+        useNewUrlParser: true,
+        useUnifiedTopology: true,
+        useCreateIndex: true,
+        poolSize: 10
+      }
+    } else {
+      options = {
+        useNewUrlParser: true,
+        useUnifiedTopology: true,
+        useCreateIndex: true,
+        poolSize: 10
+      }
+    }
+    console.log(url);
+    console.log(options);
+
+    const db = await new Mongoose().createConnection(url, options);
     this.ValidatorModel = db.model<IValidator>('Validator_' + dbName, ValidatorSchema, 'validator');
     this.NominationModel = db.model<INomination>('Nomination_' + dbName, NominationSchema, 'nomination');
     this.ChainInfoModel = db.model<IChainInfo>('ChainInfo_' + dbName, ChainInfoSchema, 'chainInfo');
     this.UnclaimedEraInfoModel = db.model<IUnclaimedEraInfo>('UnclaimedEraInfo_' + dbName, UnclaimedEraInfoSchema, 'unclaimedEraInfo');
-    this.StashInfoModel = db.model<IStashInfo>('StashInfo_' + dbName, StashInfoSchema, 'stashInfo' );
-    this.NominatorModel = db.model<INominator>('Nominator_'+ dbName, NominatorSchema, 'nominator');
-    this.ValidatorSlashModel = db.model<IValidatorSlash>('ValidatorSlash_' + dbName, ValidatorSlashSchema,  'validatorSlash');
-    this.NominatorSlashModel = db.model<INominatorSlash>('NominatorSlash_' + dbName, NominatorSlashSchema,  'nominatorSlash');
+    this.StashInfoModel = db.model<IStashInfo>('StashInfo_' + dbName, StashInfoSchema, 'stashInfo');
+    this.NominatorModel = db.model<INominator>('Nominator_' + dbName, NominatorSchema, 'nominator');
+    this.ValidatorSlashModel = db.model<IValidatorSlash>('ValidatorSlash_' + dbName, ValidatorSlashSchema, 'validatorSlash');
+    this.NominatorSlashModel = db.model<INominatorSlash>('NominatorSlash_' + dbName, NominatorSlashSchema, 'nominatorSlash');
     db.on('error', console.error.bind(console, 'connection error:'));
-    db.once('open', async function() {
+    db.once('open', async function () {
       logger.info('DB connected');
     });
   }
 
   async getValidatorList(): Promise<string[]> {
     const validators = await this.ValidatorModel?.find({}).lean().exec() as unknown as ValidatorDbSchema[];
-    return validators.reduce((acc: string[], v: ValidatorDbSchema)=>{
+    return validators.reduce((acc: string[], v: ValidatorDbSchema) => {
       acc.push(v.id.toString());
       return acc;
     }, []);
@@ -70,14 +101,14 @@ export class DatabaseHandler {
     if (validator === null) {
       return validator;
     }
-    
+
     const nomination = await this.NominationModel?.findOne({
       era: era,
       validator: id
     }).lean().exec() as unknown as NominationDbSchema;
 
     if (nomination !== null) {
-      if(validator !== undefined) {
+      if (validator !== undefined) {
         validator.info = [nomination];
       }
     }
@@ -87,15 +118,19 @@ export class DatabaseHandler {
 
   async getValidatorStatus(id: string): Promise<ValidatorDbSchema> {
     const validator = await this.ValidatorModel?.aggregate([
-      {$match: {
-        'id': id
-      }},
-      {$lookup: {
-        from: 'nomination',
-        localField: 'id',
-        foreignField: 'validator_',
-        as: 'info'
-      }}
+      {
+        $match: {
+          'id': id
+        }
+      },
+      {
+        $lookup: {
+          from: 'nomination',
+          localField: 'id',
+          foreignField: 'validator_',
+          as: 'info'
+        }
+      }
     ]).exec() as unknown as ValidatorDbSchema;
 
     return validator;
@@ -103,12 +138,14 @@ export class DatabaseHandler {
 
   async getAllValidatorStatus(): Promise<ValidatorDbSchema[]> {
     const validator = await this.ValidatorModel?.aggregate([
-      {$lookup: {
-        from: 'nomination',
-        localField: 'id',
-        foreignField: 'validator',
-        as: 'info'
-      }}
+      {
+        $lookup: {
+          from: 'nomination',
+          localField: 'id',
+          foreignField: 'validator',
+          as: 'info'
+        }
+      }
     ]).exec() as unknown as ValidatorDbSchema[];
 
     return validator;
@@ -118,28 +155,37 @@ export class DatabaseHandler {
     await this.ValidatorModel?.updateOne({
       id: id
     }, {
-      $set: {averageApy: apy}
-    }, {}).exec().catch((err)=>{logger.error(err)});
+      $set: { averageApy: apy }
+    }, {}).exec().catch((err) => { logger.error(err) });
   }
 
   async getValidators(era: number, size: number, page: number) {
     const startTime = Date.now();
     const nominations = await this.NominationModel?.aggregate([
-      {$match: {
-        era: era
-      }},
-      {$lookup: {
-        from: 'validator',
-        localField: 'validator',
-        foreignField: 'id',
-        as: 'data'
-      }},
-      {$skip: page * size},
-      {$limit: size}
+      {
+        $match: {
+          era: era
+        }
+      },
+      {
+        $lookup: {
+          from: 'validator',
+          localField: 'validator',
+          foreignField: 'id',
+          as: 'data'
+        }
+      },
+      { $skip: page * size },
+      { $limit: size }
     ]).exec();
 
-    const validators = nominations.map((nomination: { data: { statusChange: any; id: string, identity: {
-      display: string };}[]; nominators: any; era: any; exposure: any; commission: any; apy: any; }) => {
+    const validators = nominations.map((nomination: {
+      data: {
+        statusChange: any; id: string, identity: {
+          display: string
+        };
+      }[]; nominators: any; era: any; exposure: any; commission: any; apy: any;
+    }) => {
       return {
         id: nomination.data[0].id,
         identity: nomination.data[0].identity,
@@ -159,15 +205,15 @@ export class DatabaseHandler {
     }
   }
 
-  async saveValidatorNominationData(id: string, data: ValidatorCache): Promise<boolean>{
+  async saveValidatorNominationData(id: string, data: ValidatorCache): Promise<boolean> {
     try {
       const isDataValid = this.__validateNominationInfo(id, data);
-      if(!isDataValid) {
+      if (!isDataValid) {
         return false;
       }
       const validator = await this.getValidatorStatus(id);
       const nData = data.toNominationDbSchema();
-      if(validator === undefined) {
+      if (validator === undefined) {
         const vData = data.toValidatorDbSchema();
         await this.ValidatorModel?.create(vData).catch((err: Error) => logger.error(err));
         await this.NominationModel?.create(nData.toObject()).catch((err: Error) => logger.error(err));
@@ -181,14 +227,14 @@ export class DatabaseHandler {
             parent: data.identity.getParent(),
             sub: data.identity.getSub(),
             isVerified: data.identity.isVerified(),
-          }, 
+          },
           'statusChange.commission': data.commissionChanged
-        }, {useFindAndModify: false})?.exec();
-        const nomination = await this.NominationModel?.findOne({era: data.era, validator: id}).exec();
-        if(nomination !== null) { // the data of this era exist, dont add a new one
+        }, { useFindAndModify: false })?.exec();
+        const nomination = await this.NominationModel?.findOne({ era: data.era, validator: id }).exec();
+        if (nomination !== null) { // the data of this era exist, dont add a new one
           await this.NominationModel?.findOneAndUpdate({
             era: data.era, validator: id,
-          }, nData.toObject(), {useFindAndModify: false})?.exec().catch((err)=>{logger.error(err)});
+          }, nData.toObject(), { useFindAndModify: false })?.exec().catch((err) => { logger.error(err) });
           return true;
         }
         await this.NominationModel?.create(nData.toObject());
@@ -208,18 +254,18 @@ export class DatabaseHandler {
       data.forEach((validator) => {
         script.push(
           {
-            updateOne :
+            updateOne:
             {
-              "filter": {id: validator.id},
+              "filter": { id: validator.id },
               "update": {
-                  id: validator.id,
-                  identity: new IdentityDbSchema(validator.identity.getIdentity(), validator.identity.getParent(),
+                id: validator.id,
+                identity: new IdentityDbSchema(validator.identity.getIdentity(), validator.identity.getParent(),
                   validator.identity.getSub(), validator.identity.isVerified()),
-                  statusChange: {
-                    commission: validator.commissionChanged
-                  },
-                  stakerPoints: validator.stakerPoints,
+                statusChange: {
+                  commission: validator.commissionChanged
                 },
+                stakerPoints: validator.stakerPoints,
+              },
               "upsert": true,
             }
           }
@@ -233,9 +279,9 @@ export class DatabaseHandler {
           validator.commission, validator.apy, validator.id, validator.total, validator.selfStake);
         script.push(
           {
-            updateOne :
+            updateOne:
             {
-              "filter": {validator: validator.id, era: validator.era},
+              "filter": { validator: validator.id, era: validator.era },
               "update": nData.toObject(),
               "upsert": true,
             }
@@ -243,7 +289,7 @@ export class DatabaseHandler {
         );
       });
       await this.NominationModel?.bulkWrite(script);
-    } catch(err) {
+    } catch (err) {
       logger.error(err);
     }
 
@@ -255,21 +301,21 @@ export class DatabaseHandler {
       data.forEach((nominator) => {
         script.push(
           {
-            updateOne :
+            updateOne:
             {
-              "filter": {address: nominator.address},
+              "filter": { address: nominator.address },
               "update": {
-                  address: nominator.address,
-                  targets: nominator.targets,
-                  balance: nominator.balance.toLeanDocument(),
-                },
+                address: nominator.address,
+                targets: nominator.targets,
+                balance: nominator.balance.toLeanDocument(),
+              },
               "upsert": true,
             }
           }
         );
       });
       await this.NominatorModel?.bulkWrite(script);
-    } catch(err) {
+    } catch (err) {
       logger.error(err);
     }
   }
@@ -277,33 +323,33 @@ export class DatabaseHandler {
   async saveNominator(data: BalancedNominator): Promise<void> {
     const nominator = await this.NominatorModel?.findOne({
       address: data.address,
-    }).exec().catch((err)=>{
+    }).exec().catch((err) => {
       logger.error(err);
     });
-    if(nominator !== undefined && nominator !== null) { // the nominator is updated in this era, only update iff nominator is diff from data
+    if (nominator !== undefined && nominator !== null) { // the nominator is updated in this era, only update iff nominator is diff from data
       const targets = nominator.get('targets');
       const balance = nominator.get('balance');
-      if(targets.length === data.targets.length) {
+      if (targets.length === data.targets.length) {
         const sorted = data.targets.sort();
         const identical = targets.sort().every((v: string, i: number) => v === sorted[i]);
-        if(!identical) {
+        if (!identical) {
           logger.debug('+++++++');
           logger.debug(nominator);
           logger.debug(data);
           logger.debug('------');
-          this.NominatorModel?.updateOne({address: data.address}, {
-            $set: {targets: data.targets},
-          }).exec().catch((err)=>{
+          this.NominatorModel?.updateOne({ address: data.address }, {
+            $set: { targets: data.targets },
+          }).exec().catch((err) => {
             logger.error(err);
           });
         }
       }
-      if(balance.freeBalance !== data.balance.freeBalance || balance.lockedBalance !== data.balance.lockedBalance) {
-        this.NominatorModel?.updateOne({address: data.address}, {
-          $set: { 
+      if (balance.freeBalance !== data.balance.freeBalance || balance.lockedBalance !== data.balance.lockedBalance) {
+        this.NominatorModel?.updateOne({ address: data.address }, {
+          $set: {
             balance: data.balance.toLeanDocument()
           },
-        }).exec().catch((err)=>{
+        }).exec().catch((err) => {
           logger.error(err);
         });
       }
@@ -313,15 +359,15 @@ export class DatabaseHandler {
           address: data.address,
           targets: data.targets,
           balance: data.balance.toLeanDocument(),
-        }).catch((err)=>{
+        }).catch((err) => {
           logger.error(err);
-      });
+        });
     }
   }
 
   async saveActiveEra(era: number): Promise<void> {
     logger.debug('save active era');
-    await this.ChainInfoModel?.updateOne({}, {$set: {activeEra: era}}, {upsert: true}).exec().catch((err)=>{
+    await this.ChainInfoModel?.updateOne({}, { $set: { activeEra: era } }, { upsert: true }).exec().catch((err) => {
       logger.error(err);
     });
   }
@@ -329,7 +375,7 @@ export class DatabaseHandler {
   async getActiveEra(): Promise<number> {
     logger.debug('get active era');
     const data = await this.ChainInfoModel?.findOne({}, 'activeEra').exec();
-    if(data === null) {
+    if (data === null) {
       throw new Error('Cannot get active Era');
     } else {
       const activeEra = data?.get('activeEra');
@@ -338,7 +384,7 @@ export class DatabaseHandler {
   }
 
   async saveLastFetchedBlock(blockNumber: number): Promise<void> {
-    await this.ChainInfoModel?.updateOne({}, {$set: {lastFetchedBlock: blockNumber}}, {upsert: true}).exec().catch((err)=>{
+    await this.ChainInfoModel?.updateOne({}, { $set: { lastFetchedBlock: blockNumber } }, { upsert: true }).exec().catch((err) => {
       logger.error(err);
     });
   }
@@ -346,11 +392,11 @@ export class DatabaseHandler {
   async getLastFetchedRewardBlock(minBlockNumber: number): Promise<number> {
     const chainInfo = await this.ChainInfoModel?.findOne({}, 'lastFetchedBlock').exec();
     let blockNumber = minBlockNumber;
-    if(chainInfo === null) {
+    if (chainInfo === null) {
       blockNumber = minBlockNumber;
     } else {
       blockNumber = chainInfo?.get('lastFetchedBlock');
-      if(blockNumber === undefined) {
+      if (blockNumber === undefined) {
         blockNumber = minBlockNumber;
       }
     }
@@ -358,10 +404,10 @@ export class DatabaseHandler {
   }
 
   async saveValidatorUnclaimedEras(id: string, eras: number[]): Promise<void> {
-    await this.UnclaimedEraInfoModel?.updateOne({validator: id}, {
+    await this.UnclaimedEraInfoModel?.updateOne({ validator: id }, {
       eras: eras,
       validator: id,
-    }, {upsert: true}).exec().catch((err)=>{
+    }, { upsert: true }).exec().catch((err) => {
       logger.error(err);
     });
   }
@@ -372,20 +418,20 @@ export class DatabaseHandler {
       data.forEach((validator) => {
         script.push(
           {
-            updateOne :
+            updateOne:
             {
-              "filter": {validator: validator.id},
+              "filter": { validator: validator.id },
               "update": {
-                  eras: validator.eras,
-                  validator: validator.id
-                },
+                eras: validator.eras,
+                validator: validator.id
+              },
               "upsert": true,
             }
           }
         );
       });
       await this.UnclaimedEraInfoModel?.bulkWrite(script);
-    } catch(err) {
+    } catch (err) {
       logger.error(err);
     }
   }
@@ -395,7 +441,7 @@ export class DatabaseHandler {
       address: id,
       era: slash.era,
       total: slash.own,
-      others: slash.others.reduce((acc: any, other)=>{
+      others: slash.others.reduce((acc: any, other) => {
         const o = {
           address: other[0],
           value: other[1],
@@ -403,21 +449,21 @@ export class DatabaseHandler {
         acc.push(o);
         return acc;
       }, []),
-    }).catch((err)=>{
-      if(err.code !== 11000) { // we should accept duplication key as a normal situation.
+    }).catch((err) => {
+      if (err.code !== 11000) { // we should accept duplication key as a normal situation.
         logger.log(err);
       }
     });
   }
 
-  async saveNominatorSlash(id: string, slash: NominatorSlash): Promise<void>{
+  async saveNominatorSlash(id: string, slash: NominatorSlash): Promise<void> {
     await this.NominatorSlashModel?.create({
       address: id,
       era: slash.era,
       total: slash.total,
       validator: slash.validator,
-    }).catch((err)=>{
-      if(err.code !== 11000) { // we should accept duplication key as a normal situation.
+    }).catch((err) => {
+      if (err.code !== 11000) { // we should accept duplication key as a normal situation.
         logger.log(err);
       }
     });
@@ -427,21 +473,21 @@ export class DatabaseHandler {
     const validator = await this.ValidatorModel?.findOne({
       id: id,
     }).lean().exec() as unknown as ValidatorDbSchema;
-    if(validator === null) {
+    if (validator === null) {
       return;
     }
     let start = 0;
     let total = reward.reward;
-    if(validator.rewards !== undefined) {
-      if(validator.rewards.end >= reward.era) {
+    if (validator.rewards !== undefined) {
+      if (validator.rewards.end >= reward.era) {
         // updated, finish
         return;
       }
       start = validator.rewards.start;
-      if(reward.era < validator.rewards.start) {
+      if (reward.era < validator.rewards.start) {
         start = reward.era;
       }
-      if(!Number.isNaN(validator.rewards.total) && validator.rewards.total !== undefined) {
+      if (!Number.isNaN(validator.rewards.total) && validator.rewards.total !== undefined) {
         total = validator.rewards.total + reward.reward;
       }
     }
@@ -450,49 +496,49 @@ export class DatabaseHandler {
     }, {
       $set: {
         rewards: {
-            start: start,
-            end: reward.era,
-            total: total,
-          }
+          start: start,
+          end: reward.era,
+          total: total,
+        }
       }
     }).exec();
   }
 
-  
+
   async saveRewards(stash: string, era: number, amount: number, timestamp: number): Promise<void> {
     await this.StashInfoModel?.create({
       stash: stash,
       era: era,
       amount: amount,
       timestamp: timestamp,
-    }).catch(()=>{
+    }).catch(() => {
       // it is ok
       //console.error(err);
     });
   }
 
   __validateNominationInfo(id: string, data: ValidatorCache): boolean {
-    if(!Number.isInteger(data.era)) {
+    if (!Number.isInteger(data.era)) {
       logger.error('data.era is not an integer');
       logger.error(id);
       logger.error(data);
       return false;
     }
-    if(!Array.isArray(data.exposure.others)) {
+    if (!Array.isArray(data.exposure.others)) {
       logger.error('data.exposure is not an array');
       logger.error(id);
       logger.error(data);
       return false;
     }
-    if(!Array.isArray(data.nominators)) {
+    if (!Array.isArray(data.nominators)) {
       logger.error('data.nominators is not an array');
       logger.error(id);
       logger.error(data);
       return false;
     }
-    for(let i = 0; i < data.exposure.others.length; i++) {
-      if(data.exposure.others[i] !== undefined) {
-        if(data.exposure.others[i].who === undefined || data.exposure.others[i].value === undefined) {
+    for (let i = 0; i < data.exposure.others.length; i++) {
+      if (data.exposure.others[i] !== undefined) {
+        if (data.exposure.others[i].who === undefined || data.exposure.others[i].value === undefined) {
           logger.error('incorrect exposure format');
           logger.error(id);
           logger.error(data);

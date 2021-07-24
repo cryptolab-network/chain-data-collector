@@ -5,3 +5,4 @@ src/**/*.js
 index.js
 config/dev.js
 build/
+dev.ts

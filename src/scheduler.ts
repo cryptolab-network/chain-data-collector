@@ -7,9 +7,7 @@ import { Validator, StakerPoint, NominatorSlash, BalancedNominator, ValidatorCac
 import { OneKvHandler } from "./oneKvData";
 import { RewardCalc } from "./rewardCalc";
 import { logger } from './logger';
-
-// eslint-disable-next-line
-const keys = require('../config/keys');
+import { keys } from './config/keys';
 
 let DECIMALS = 1000000000000;
 
@@ -29,18 +27,18 @@ export class Scheduler {
     this.cacheData = cacheData;
     this.db = db;
     this.isCaching = false;
-    if(name === 'POLKADOT') {
-      this.oneKvHandler= new OneKvHandler(this.chainData, this.cacheData, this.db, keys.API_1KV_POLKADOT);
+    if (name === 'POLKADOT') {
+      this.oneKvHandler = new OneKvHandler(this.chainData, this.cacheData, this.db, keys.API_1KV_POLKADOT);
       DECIMALS = 100000000000000;
     } else {
-      this.oneKvHandler= new OneKvHandler(this.chainData, this.cacheData, this.db, keys.API_1KV_KUSAMA);
+      this.oneKvHandler = new OneKvHandler(this.chainData, this.cacheData, this.db, keys.API_1KV_KUSAMA);
       DECIMALS = 1000000000000;
     }
     this.name = name;
   }
 
   start(): void {
-    if(this.name === 'KUSAMA') {
+    if (this.name === 'KUSAMA') {
       this.rewardCalcScheduler('0 2,8,14,20 * * *');
       this.fetchDataScheduler('*/20 * * * *');
     } else {
@@ -61,7 +59,7 @@ export class Scheduler {
 
   private async fetchDataScheduler(schedule: string) {
     const job = new CronJob(schedule, async () => {
-      if(this.isCaching) {
+      if (this.isCaching) {
         return;
       }
       this.isCaching = true;
@@ -82,16 +80,16 @@ export class Scheduler {
         nominatorCache = new Map<string, BalancedNominator>();
         validatorCache = new Map<string, ValidatorCache>();
         unclaimedEraCache = new Map<string, ValidatorUnclaimedEras>();
-        for(let i = 0; i < validatorWaitingInfo.validators.length; i++) {
+        for (let i = 0; i < validatorWaitingInfo.validators.length; i++) {
           const validator = validatorWaitingInfo.validators[i];
-          if(validator !== undefined && eraReward !== undefined) {
+          if (validator !== undefined && eraReward !== undefined) {
             await this.makeValidatorInfoOfEra(validator, eraReward, activeEra, validatorCount);
           }
         }
         let i = 1;
         let tmp = new Array<ValidatorCache>();
         for (const [, v] of validatorCache) {
-          if(v) {
+          if (v) {
             tmp.push(v);
           }
           if (i % 100 === 0) {
@@ -106,7 +104,7 @@ export class Scheduler {
         i = 1;
         let tmp2 = new Array<ValidatorUnclaimedEras>();
         for (const [, u] of unclaimedEraCache) {
-          if(u) {
+          if (u) {
             tmp2.push(u);
           }
           if (i % 100 === 0) {
@@ -123,7 +121,7 @@ export class Scheduler {
         i = 1;
         let tmp3 = new Array<BalancedNominator>();
         for (const [, n] of nominatorCache) {
-          if(n) {
+          if (n) {
             tmp3.push(n);
           }
           if (i % 500 === 0) {
@@ -137,22 +135,22 @@ export class Scheduler {
         }
         console.timeEnd(`[${this.name}] Write Nominator Data`);
         console.time(`[${this.name}] Update Cache Data`);
-        this.cacheData.update('validDetailAll', { 
+        this.cacheData.update('validDetailAll', {
           valid: validatorWaitingInfo.validators.map(v => {
-            if(v !== undefined) {
+            if (v !== undefined) {
               return v.toObject();
             }
-          }) 
+          })
         });
         const nominators = validatorWaitingInfo.balancedNominators;
-        this.cacheData.update('nominators', nominators.map((n)=>{
+        this.cacheData.update('nominators', nominators.map((n) => {
           return n?.toObject();
         }));
         logger.debug('length ' + validatorWaitingInfo.validators.length);
         await this.cacheOneKVInfo(validatorWaitingInfo.validators);
         console.timeEnd(`[${this.name}] Update Cache Data`);
         logger.info(`[${this.name}] scheduler ends`);
-      } catch (err){
+      } catch (err) {
         logger.error(err);
         logger.error('schedule retrieving data error');
       }
@@ -173,7 +171,7 @@ export class Scheduler {
     // eslint-disable-next-line
     try {
       const dbEra = await this.db.getActiveEra();
-      if(era !== dbEra) {
+      if (era !== dbEra) {
         await this.updateHistoricalAPY();
         await this.updateUnappliedSlashes(era - 1);
       }
@@ -185,44 +183,44 @@ export class Scheduler {
   private async makeValidatorInfoOfEra(validator: Validator, eraReward: string,
     era: number, validatorCount: number) {
     const stakerPoints = await this.chainData.getStakerPoints(validator.accountId);
-    const activeEras = stakerPoints?.filter((point)=>{
+    const activeEras = stakerPoints?.filter((point) => {
       return point.points.toNumber() > 0;
     });
     const unclaimedEras = activeEras?.filter((point) => !validator.stakingLedger.claimedRewards.includes(point.era));
     const lastEraInfo = await this.db.getValidatorStatusOfEra(validator.accountId, era - 1);
     let latestCommission = 0;
-    if(lastEraInfo !== undefined) {
-      if(lastEraInfo !== undefined && lastEraInfo !== null) {
-        if(lastEraInfo.info !== undefined) {
+    if (lastEraInfo !== undefined) {
+      if (lastEraInfo !== undefined && lastEraInfo !== null) {
+        if (lastEraInfo.info !== undefined) {
           latestCommission = lastEraInfo.info[0].commission;
         }
       }
     }
     let commissionChanged = 0;
-    if(latestCommission != validator.prefs.commissionPct()) {
-      if(validator.prefs.commissionPct() > latestCommission) {
+    if (latestCommission != validator.prefs.commissionPct()) {
+      if (validator.prefs.commissionPct() > latestCommission) {
         commissionChanged = 1;
-      } else if(validator.prefs.commissionPct() < latestCommission) {
+      } else if (validator.prefs.commissionPct() < latestCommission) {
         commissionChanged = 2;
       } else {
         commissionChanged = 0;
       }
     }
     let erasPerDay = 1;
-    if(this.name === 'KUSAMA') {
+    if (this.name === 'KUSAMA') {
       erasPerDay = 4;
     }
     const apy = validator.apy(BigInt(DECIMALS), BigInt(eraReward), validatorCount, erasPerDay);
     const data = new ValidatorCache(validator.accountId, era, validator.exposure, validator.prefs.commissionPct(),
-    apy, validator.identity, validator.nominators.map((n)=>{
-      return n.address;
-    }), commissionChanged, stakerPoints.map((stakerPoint) => {
-      return new StakerPoint(stakerPoint.era.toNumber(), stakerPoint.points.toNumber());
-    }), validator.nominators.reduce((acc, n)=>{
-      acc += n.balance.lockedBalance;
-      return acc;
-    }, BigInt(0)), validator.selfStake);
-    this.saveUnclaimedEras(validator.accountId, unclaimedEras?.map((era)=>{
+      apy, validator.identity, validator.nominators.map((n) => {
+        return n.address;
+      }), commissionChanged, stakerPoints.map((stakerPoint) => {
+        return new StakerPoint(stakerPoint.era.toNumber(), stakerPoint.points.toNumber());
+      }), validator.nominators.reduce((acc, n) => {
+        acc += n.balance.lockedBalance;
+        return acc;
+      }, BigInt(0)), validator.selfStake);
+    this.saveUnclaimedEras(validator.accountId, unclaimedEras?.map((era) => {
       return era.era.toNumber();
     }));
     this.saveValidatorNominationData(validator.accountId, data);
@@ -248,30 +246,30 @@ export class Scheduler {
     // const validators = await this.db.getValidatorList();
     console.time(`[${this.name}] Update each validator's average apy`);
     const data = await this.db.getAllValidatorStatus();
-    for(let i = 0; i < data.length; i++) {
+    for (let i = 0; i < data.length; i++) {
       const info = data[i].info;
       let avgApy = 0;
       let sum = 0;
       let activeEras = 0;
-      if(info) {
+      if (info) {
         const totalEras = info.length;
-        if(totalEras > 84) {
-          for(let j = totalEras - 85; j < totalEras - 1; j++) {
-            if(info[j].exposure.total > 0) {
+        if (totalEras > 84) {
+          for (let j = totalEras - 85; j < totalEras - 1; j++) {
+            if (info[j].exposure.total > 0) {
               sum += info[j].apy;
               activeEras++;
             }
           }
         } else {
-          for(let j = 0; j < totalEras; j++) {
-            if(info[j].exposure.total > 0) {
+          for (let j = 0; j < totalEras; j++) {
+            if (info[j].exposure.total > 0) {
               sum += info[j].apy;
               activeEras++;
             }
           }
         }
       }
-      if(activeEras > 0) {
+      if (activeEras > 0) {
         avgApy = sum / activeEras;
       } else {
         avgApy = 0;

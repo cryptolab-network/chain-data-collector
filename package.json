@@ -5,9 +5,9 @@
   "main": "index.js",
   "scripts": {
     "build": "npx tsc",
-    "start": "node index.js",
-    "startKusama": "node index.js --chain=kusama",
-    "startPolkadot": "node index.js --chain=polkadot",
+    "start": "node ./build/index.js",
+    "startKusama": "node ./build/index.js --chain=kusama",
+    "startPolkadot": "node ./build/index.js --chain=polkadot",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
