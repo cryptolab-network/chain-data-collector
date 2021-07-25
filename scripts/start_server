@@ -1,0 +1,4 @@
+#!/bin/bash
+cd /home/ubuntu/cdc
+systemctl restart cryptolab-cdc-kusama.service
+systemctl restart cryptolab-cdc-polkadot.service
