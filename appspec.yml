@@ -2,8 +2,12 @@ version: 0.0
 os: linux
 files:
  - source: .
-   destination: /home/ubuntu/chain-data-collector
+   destination: /home/ubuntu/cdc
 hooks:
+  AfterInstall:
+    - location: scripts/install
+      timeout: 30000
+      runas: root
   ApplicationStart:
     - location: scripts/start_server
       timeout: 300

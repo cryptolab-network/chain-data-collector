@@ -1,4 +1,0 @@
-#!/bin/bash
-cd /home/ubuntu/cdc
-aws s3 sync s3://chain-data-collector . --delete
-
