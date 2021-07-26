@@ -42,7 +42,7 @@ export class DatabaseHandler {
     url += `${ip}:${port}/${dbName}`;
 
     let options = {};
-    if (keys.MONGO_SSL) {
+    if (keys.MONGO_SSL === true) {
       const pem = fs.readFileSync(keys.MONGO_SSL_CA);
       options = {
         ssl: true,
