@@ -1,4 +1,5 @@
 #!/bin/bash
+[ ! -d /home/ubuntu/cdc ] && mkdir -p /home/ubuntu/cdc
 cd /home/ubuntu/cdc
 npm ci
 npm run build
