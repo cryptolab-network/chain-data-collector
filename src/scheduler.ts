@@ -86,22 +86,8 @@ export class Scheduler {
             await this.makeValidatorInfoOfEra(validator, eraReward, activeEra, validatorCount);
           }
         }
+        await this.updateValidators();
         let i = 1;
-        let tmp = new Array<ValidatorCache>();
-        for (const [, v] of validatorCache) {
-          if (v) {
-            tmp.push(v);
-          }
-          if (i % 100 === 0) {
-            await this.db.saveMultipleValidatorNominationData(tmp);
-            tmp = new Array<ValidatorCache>();
-          }
-          i++;
-        }
-        if (tmp.length > 0) {
-          await this.db.saveMultipleValidatorNominationData(tmp);
-        }
-        i = 1;
         let tmp2 = new Array<ValidatorUnclaimedEras>();
         for (const [, u] of unclaimedEraCache) {
           if (u) {
@@ -157,6 +143,34 @@ export class Scheduler {
       this.isCaching = false;
     }, null, true, 'America/Los_Angeles', null, true);
     job.start();
+  }
+
+  private async updateValidators(): Promise<void> {
+    let tmp = new Array<ValidatorCache>();
+    for (const [, v] of validatorCache) {
+      if (v) {
+        // compare with cache first to access less DB
+        try {
+          const cached = await this.cacheData.fetchValidatorCache(v.id);
+          if (!cached.isEqual(v)) {
+            tmp.push(v);
+            await this.cacheData.updateValidatorCache(v.id, v);
+          }
+        } catch (e) {
+          tmp.push(v);
+          await this.cacheData.updateValidatorCache(v.id, v);
+        }
+        if (tmp.length >= 100) {
+          logger.debug(`write ${tmp.length} rows to db`);
+          await this.db.saveMultipleValidatorNominationData(tmp);
+          tmp = new Array<ValidatorCache>();
+        }
+      }
+    }
+    if (tmp.length > 0) {
+      logger.debug(`write ${tmp.length} rows to db`);
+      await this.db.saveMultipleValidatorNominationData(tmp);
+    }
   }
 
   private async cacheOneKVInfo(validators: (Validator | undefined)[]) {

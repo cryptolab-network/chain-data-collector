@@ -1,6 +1,7 @@
 import moment from 'moment';
 import redis from 'redis';
 import { logger } from './logger';
+import { ValidatorCache } from './types';
 
 export class Cache {
   client: redis.RedisClient
@@ -39,7 +40,11 @@ export class Cache {
     return new Promise<void>((resolve, reject)=>{
       let str = '';
       if(typeof data !== 'string') {
-        str = JSON.stringify(data);
+        str = JSON.stringify(data, (_key, value) =>
+          typeof value === 'bigint'
+              ? value.toString()
+              : value // return everything else unchanged
+        );
       } else {
         str = data;
       }
@@ -52,6 +57,15 @@ export class Cache {
         }
       });
     });
+  }
+
+  async fetchValidatorCache(id: string): Promise<ValidatorCache> {
+    const validator = await this.fetch<ValidatorCache>(`${id}_validatorCache`);
+    return ValidatorCache.fromObject(validator);
+  }
+
+  async updateValidatorCache(id: string, data: ValidatorCache): Promise<void> {
+    return this.update<ValidatorCache>(`${id}_validatorCache`, data);
   }
 
 }

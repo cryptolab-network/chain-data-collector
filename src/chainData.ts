@@ -263,40 +263,63 @@ class ChainData {
     }
     console.timeEnd('[ChainData] Retrieving next elected');
     console.time('[ChainData] Retrieving identity for next elected');
-
+    promises1 = [];
     for(let i = 0; i < nextElects.length; i++) {
       const nextElect = nextElects[i];
       if(nextElect !== undefined) {
         if(nextElect.accountId !== undefined) {
           if(this.api) {
-            const { identity } = await this.api.derive.accounts.info(nextElect.accountId);
-            const _identity = this.createIdentity(nextElect.accountId.toString(), identity);
-            nextElect.identity = _identity;
-            nextElect.totalNominators = 0;
-            nextElect.activeNominators = nextElect.exposure.others.length;
-            const balances = await this.api?.derive.balances.all(nextElect.accountId);
-            nextElect.selfStake = balances.lockedBalance.toBigInt();
+            promises1.push(this.api.derive.accounts.info(nextElect.accountId).then(({ identity }) => {
+              const _identity = this.createIdentity(nextElect.accountId.toString(), identity);
+              nextElect.identity = _identity;
+              nextElect.totalNominators = 0;
+              nextElect.activeNominators = nextElect.exposure.others.length;
+              return this.api?.derive.balances.all(nextElect.accountId);
+            }).then((balances) => {
+              if (balances) {
+                nextElect.selfStake = balances.lockedBalance.toBigInt();
+              }
+            }));
           }
         }
       }
+      if (i % 20 === 0) {
+        await Promise.all(promises1);
+        promises1 = [];
+      }
+    }
+    if(promises1.length > 0) {
+      await Promise.all(promises1);
     }
     console.timeEnd('[ChainData] Retrieving identity for next elected');
     validators = validators.concat(nextElects);
     console.time('[ChainData] Retrieving identity for waitings');
+    promises1 = [];
     for(let i = 0; i < waitingInfo.info.length; i++) {
       const intention = waitingInfo.info[i];
+      const validator = new Validator(intention.accountId.toString(), intention.exposure,
+            intention.stakingLedger, intention.validatorPrefs);
       if(this.api) {
-        const { identity } = await this.api.derive.accounts.info(intention.accountId);
-        const _identity = this.createIdentity(intention.accountId.toString(), identity);
-        const validator = new Validator(intention.accountId.toString(), intention.exposure,
-          intention.stakingLedger, intention.validatorPrefs);
-        validator.identity = _identity;
-        validator.totalNominators = 0;
-        validator.activeNominators = 0;
-        const balances = await this.api?.derive.balances.all(intention.accountId);
-        validator.selfStake = balances.lockedBalance.toBigInt();
-        intentions.push(validator);
+        promises1.push(this.api.derive.accounts.info(intention.accountId).then(({ identity }) => {
+          const _identity = this.createIdentity(intention.accountId.toString(), identity);
+          validator.identity = _identity;
+          validator.totalNominators = 0;
+          validator.activeNominators = 0;
+          return this.api?.derive.balances.all(intention.accountId);
+        }).then((balances) => {
+          if (balances) {
+            validator.selfStake = balances.lockedBalance.toBigInt();
+          }
+          intentions.push(validator);
+        }));
       }
+      if (i % 20 === 0) {
+        await Promise.all(promises1);
+        promises1 = [];
+      }
+    }
+    if(promises1.length > 0) {
+      await Promise.all(promises1);
     }
     console.timeEnd('[ChainData] Retrieving identity for waitings');
     validators = validators.concat(intentions);

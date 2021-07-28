@@ -3,6 +3,7 @@ import type { EraIndex as PolkadotEraIndex, Exposure as PolkadotExposure,
   StakingLedger as PolkadotStakingLedger, ValidatorPrefs as PolkadotValidatorPrefs } from '@polkadot/types/interfaces';
 import { LeanDocument } from 'mongoose';
 import { IBalance } from './db/schema';
+import { logger } from './logger';
 
 // eslint-disable-next-line
 const divide = require('divide-bigint');
@@ -18,10 +19,38 @@ class Identity {
     this.verified = false;
   }
 
+  static fromObject(obj: Identity): Identity {
+    const identity = new Identity(obj.address);
+    identity.parent = obj.parent;
+    identity.sub = obj.sub;
+    identity.verified = obj.verified;
+    return identity;
+  }
+
   set(parent: string | undefined, sub: string | undefined, isVerified: boolean): void {
     this.parent = parent;
     this.sub = sub;
     this.verified = isVerified;
+  }
+
+  isEqual(other: Identity): boolean {
+    if (this.address !== other.address) {
+      logger.debug(`Identity address mismatch ${this.address} ${other.address}`);
+      return false;
+    }
+    if (this.parent !== other.parent) {
+      logger.debug(`Identity parent mismatch ${this.parent} ${other.parent}`);
+      return false;
+    }
+    if (this.sub !== other.sub) {
+      logger.debug(`Identity sub mismatch ${this.sub} ${other.sub}`);
+      return false;
+    }
+    if(this.isVerified !== other.isVerified) {
+      logger.debug(`Identity is verified mismatch ${this.isVerified} ${other.isVerified}`);
+      return false;
+    }
+    return true;
   }
 
   getIdentity(): string {
@@ -54,9 +83,21 @@ class Identity {
 class Balance {
   freeBalance: bigint
   lockedBalance: bigint
-  constructor(free: bigint, locked: bigint) {
-    this.freeBalance = free;
-    this.lockedBalance = locked;
+  constructor(free: string | bigint, locked: string | bigint) {
+    if (typeof free === 'string') {
+      this.freeBalance = BigInt(free);
+    } else {
+      this.freeBalance = free;
+    }
+    if (typeof locked === 'string') {
+      this.lockedBalance = BigInt(locked);
+    } else {
+      this.lockedBalance = locked;
+    }
+  }
+
+  static fromObject(obj: Balance): Balance {
+    return new Balance(obj.freeBalance, obj.lockedBalance);
   }
 
   exportString(): string {
@@ -196,6 +237,20 @@ class Exposure {
     this.others = others;
   }
 
+  static fromObject(obj: Exposure): Exposure {
+    return new Exposure(obj.total, obj.own, obj.others);
+  }
+
+  isEqual(other: Exposure): boolean {
+    if (this.total !== other.total) {
+      return false;
+    }
+    if (this.own !== other.own) {
+      return false;
+    }
+    return true;
+  }
+
   exportString(): string {
     return JSON.stringify({
       total: __toHexString(this.total as bigint),
@@ -299,7 +354,7 @@ export class ValidatorCache {
 
   constructor(id: string, era: number, exposure: Exposure, commission: number,
   apy: number, identity: Identity | undefined, nominators: string[], commissionChanged: number,
-  stakerPoints: StakerPoint[], total: bigint, selfStake: bigint) {
+  stakerPoints: StakerPoint[], total: string | bigint, selfStake: string | bigint) {
     this.id = id;
     this.era = era;
     this.exposure = exposure;
@@ -309,8 +364,75 @@ export class ValidatorCache {
     this.nominators = nominators;
     this.commissionChanged = commissionChanged;
     this.stakerPoints = stakerPoints;
-    this.total = total;
-    this.selfStake = selfStake;
+    if (typeof total === 'string') {
+      this.total = BigInt(total);
+    } else {
+      this.total = total;
+    }
+    if (typeof selfStake === 'string') {
+      this.selfStake = BigInt(selfStake);
+    } else {
+      this.selfStake = selfStake;
+    }
+  }
+
+  static fromObject(obj: ValidatorCache): ValidatorCache {
+    return new ValidatorCache(obj.id, obj.era, Exposure.fromObject(obj.exposure), obj.commission, obj.apy,
+      Identity.fromObject(obj.identity), obj.nominators, obj.commissionChanged, obj.stakerPoints, obj.total, obj.selfStake);
+  }
+
+  isEqual(other: ValidatorCache): boolean {
+    if (this.id !== other.id) {
+      logger.debug(`id mismatch: ${this.id} ${other.id}`);
+      return false;
+    }
+    if (this.era !== other.era) {
+      logger.debug(`era mismatch: ${this.era} ${other.era}`);
+      return false;
+    }
+    if (!this.exposure.isEqual(other.exposure)) {
+      logger.debug(`exposure mismatch: ${this.exposure.exportString()} ${other.exposure.exportString()}`);
+      return false;
+    }
+    if (this.commission !== other.commission) {
+      logger.debug(`commission mismatch: ${this.commission} ${other.commission}`);
+      return false;
+    }
+    if (this.apy !== other.apy) {
+      logger.debug(`apy mismatch: ${this.apy} ${other.apy}`);
+      return false;
+    }
+    if (!this.identity.isEqual(other.identity)) {
+      logger.debug(`identity mismatch: ${this.identity.getIdentity()} ${other.identity.getIdentity()}`);
+      return false;
+    }
+    if (this.nominators.length !== other.nominators.length) {
+      logger.debug(`nominator length mismatch: ${this.nominators.length} ${other.nominators.length}`);
+      return false;
+    }
+    if (!this.nominators.every((n) => other.nominators.indexOf(n) >= 0)) {
+      logger.debug(`nominators mismatch`);
+      return false;
+    }
+    if (this.commissionChanged !== other.commissionChanged) {
+      logger.debug(`commission changed: ${this.commissionChanged} ${other.commissionChanged}`);
+      return false;
+    }
+    if (this.stakerPoints.length !== other.stakerPoints.length) {
+      logger.debug(`stakerPoints mismatch`);
+      return false;
+    }
+    // stakerpoint does not need to be compared, because it only changes when era change
+    // so we skip it, hopefulily it will do.
+    if (this.total !== other.total) {
+      logger.debug(`total mismatch ${this.total} ${other.total}`);
+      return false;
+    }
+    if(this.selfStake !== other.selfStake) {
+      logger.debug(`self stake mismatch ${this.selfStake} ${other.selfStake}`);
+      return false;
+    }
+    return true;
   }
 
   toValidatorDbSchema(): ValidatorDbSchema {
