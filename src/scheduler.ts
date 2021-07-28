@@ -87,38 +87,10 @@ export class Scheduler {
           }
         }
         await this.updateValidators();
-        let i = 1;
-        let tmp2 = new Array<ValidatorUnclaimedEras>();
-        for (const [, u] of unclaimedEraCache) {
-          if (u) {
-            tmp2.push(u);
-          }
-          if (i % 100 === 0) {
-            await this.db.saveMultipleValidatorUnclaimedEras(tmp2);
-            tmp2 = new Array<ValidatorUnclaimedEras>();
-          }
-          i++;
-        }
-        if (tmp2.length > 0) {
-          await this.db.saveMultipleValidatorUnclaimedEras(tmp2);
-        }
+        await this.updateUnclaimedEraInfo();
         console.timeEnd(`[${this.name}] Write Validator Data`);
         console.time(`[${this.name}] Write Nominator Data`);
-        i = 1;
-        let tmp3 = new Array<BalancedNominator>();
-        for (const [, n] of nominatorCache) {
-          if (n) {
-            tmp3.push(n);
-          }
-          if (i % 500 === 0) {
-            await this.db.saveNominators(tmp3);
-            tmp3 = new Array<BalancedNominator>();
-          }
-          i++;
-        }
-        if (tmp3.length > 0) {
-          await this.db.saveNominators(tmp3);
-        }
+        await this.updateNominators();
         console.timeEnd(`[${this.name}] Write Nominator Data`);
         console.time(`[${this.name}] Update Cache Data`);
         this.cacheData.update('validDetailAll', {
@@ -145,6 +117,60 @@ export class Scheduler {
     job.start();
   }
 
+  private async updateNominators() {
+    let tmp = new Array<BalancedNominator>();
+    for (const [, n] of nominatorCache) {
+      if (n) {
+        try {
+          const cached = await this.cacheData.fetchNominators(n.address);
+          if (!cached.isEqual(n)) {
+            tmp.push(n);
+            await this.cacheData.fetchNominators(n.address);
+          }
+        } catch (e) {
+          tmp.push(n);
+          await this.cacheData.updateNominators(n.address, n);
+        }
+        if (tmp.length >= 500) {
+          logger.debug(`write ${tmp.length} rows to nominator db`);
+          await this.db.saveNominators(tmp);
+          tmp = new Array<BalancedNominator>();
+        }
+      }
+    }
+    if (tmp.length > 0) {
+      logger.debug(`write ${tmp.length} rows to nominator db`);
+      await this.db.saveNominators(tmp);
+    }
+  }
+
+  private async updateUnclaimedEraInfo() {
+    let tmp = new Array<ValidatorUnclaimedEras>();
+    for (const [, u] of unclaimedEraCache) {
+      if (u) {
+        try {
+          const cached = await this.cacheData.fetchUnclaimedEras(u.id);
+          if (!cached.isEqual(u)) {
+            tmp.push(u);
+            await this.cacheData.fetchUnclaimedEras(u.id);
+          }
+        } catch (e) {
+          tmp.push(u);
+          await this.cacheData.updateUnclaimedEras(u.id, u);
+        }
+      }
+      if (tmp.length >= 100) {
+        logger.debug(`write ${tmp.length} rows to unclaimed era db`);
+        await this.db.saveMultipleValidatorUnclaimedEras(tmp);
+        tmp = new Array<ValidatorUnclaimedEras>();
+      }
+    }
+    if (tmp.length > 0) {
+      logger.debug(`write ${tmp.length} rows to unclaimed era db`);
+      await this.db.saveMultipleValidatorUnclaimedEras(tmp);
+    }
+  }
+
   private async updateValidators(): Promise<void> {
     let tmp = new Array<ValidatorCache>();
     for (const [, v] of validatorCache) {
@@ -161,14 +187,14 @@ export class Scheduler {
           await this.cacheData.updateValidatorCache(v.id, v);
         }
         if (tmp.length >= 100) {
-          logger.debug(`write ${tmp.length} rows to db`);
+          logger.debug(`write ${tmp.length} rows to validator db`);
           await this.db.saveMultipleValidatorNominationData(tmp);
           tmp = new Array<ValidatorCache>();
         }
       }
     }
     if (tmp.length > 0) {
-      logger.debug(`write ${tmp.length} rows to db`);
+      logger.debug(`write ${tmp.length} rows to validator db`);
       await this.db.saveMultipleValidatorNominationData(tmp);
     }
   }

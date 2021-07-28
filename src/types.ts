@@ -96,6 +96,16 @@ class Balance {
     }
   }
 
+  isEqual(other: Balance): boolean {
+    if (this.freeBalance !== other.freeBalance) {
+      return false;
+    }
+    if( this.lockedBalance !== other.lockedBalance) {
+      return false;
+    }
+    return true;
+  }
+
   static fromObject(obj: Balance): Balance {
     return new Balance(obj.freeBalance, obj.lockedBalance);
   }
@@ -130,6 +140,23 @@ class BalancedNominator {
     this.address = address;
     this.targets = targets;
     this.balance = balance;
+  }
+
+  static fromObject(obj: BalancedNominator): BalancedNominator {
+    return new BalancedNominator(obj.address, obj.targets, Balance.fromObject(obj.balance));
+  }
+
+  isEqual(other: BalancedNominator): boolean {
+    if (this.address !== other.address) {
+      return false;
+    }
+    if (!this.balance.isEqual(other.balance)) {
+      return false;
+    }
+    if (!this.targets.every((n) => other.targets.indexOf(n) >= 0)) {
+      return false;
+    }
+    return true;
   }
 
   exportString(): string {
@@ -455,6 +482,21 @@ export class ValidatorUnclaimedEras {
   constructor(id: string, eras: number[]) {
     this.id = id;
     this.eras = eras;
+  }
+
+  static fromObject(obj: ValidatorUnclaimedEras): ValidatorUnclaimedEras {
+    return new ValidatorUnclaimedEras(obj.id, obj.eras);
+  }
+
+  isEqual(other: ValidatorUnclaimedEras): boolean {
+    if (this.id !== other.id) {
+      return false;
+    }
+    if (!this.eras.every((n) => other.eras.indexOf(n) >= 0)) {
+      logger.debug(`unclaimed eras mismatch`);
+      return false;
+    }
+    return true;
   }
 }
 

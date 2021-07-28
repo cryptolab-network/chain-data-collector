@@ -1,7 +1,7 @@
 import moment from 'moment';
 import redis from 'redis';
 import { logger } from './logger';
-import { ValidatorCache } from './types';
+import { BalancedNominator, Validator, ValidatorCache, ValidatorUnclaimedEras } from './types';
 
 export class Cache {
   client: redis.RedisClient
@@ -66,6 +66,24 @@ export class Cache {
 
   async updateValidatorCache(id: string, data: ValidatorCache): Promise<void> {
     return this.update<ValidatorCache>(`${id}_validatorCache`, data);
+  }
+
+  async fetchUnclaimedEras(id: string): Promise<ValidatorUnclaimedEras> {
+    const ues = await this.fetch<ValidatorUnclaimedEras>(`${id}_unclaimedEras`);
+    return ValidatorUnclaimedEras.fromObject(ues);
+  }
+
+  async updateUnclaimedEras(id: string, data: ValidatorUnclaimedEras): Promise<void> {
+    return this.update<ValidatorUnclaimedEras>(`${id}_unclaimedEras`, data);
+  }
+
+  async fetchNominators(id: string): Promise<BalancedNominator> {
+    const ues = await this.fetch<BalancedNominator>(`${id}_nominator`);
+    return BalancedNominator.fromObject(ues);
+  }
+
+  async updateNominators(id: string, data: BalancedNominator): Promise<void> {
+    return this.update<BalancedNominator>(`${id}_nominator`, data);
   }
 
 }
