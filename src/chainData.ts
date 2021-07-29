@@ -9,6 +9,10 @@ export { ChainData };
 
 const KUSAMA_APPROX_ERA_LENGTH_IN_BLOCKS = 3600;
 
+async function sleep(millis: number) {
+  return new Promise(resolve => setTimeout(resolve, millis));
+}
+
 export class ApiError extends Error {
   constructor() {
     super(`Chain data API is not initialized`);
@@ -195,53 +199,10 @@ class ChainData {
     logger.debug(`${waitingInfo.info.length} waiting validators are retrieved`);
     logger.debug(`${nominators.length} nominators are retrieved`);
     console.time('[ChainData] Retrieving staking for validators');
-    const validatorList = new Set<string>();
-    for(let i = 0; i < validatorAddresses.length; i++) {
-      const authorityId = validatorAddresses[i];
-      if(this.api) {
-        const validator = await this.api.derive.staking.query(authorityId, {
-          withDestination: false,
-          withExposure: true,
-          withLedger: true,
-          withNominations: true,
-          withPrefs: true,
-        });
-        validators.push(new Validator(authorityId.toString(),
-          validator.exposure, validator.stakingLedger, validator.validatorPrefs));
-        validatorList.add(authorityId.toString());
-      }
-    }
-    
+    const validatorList = await this.retrieveValidatorStakings(validatorAddresses, validators);
     console.timeEnd('[ChainData] Retrieving staking for validators');
     console.time('[ChainData] Retrieving identity for validators');
-    let promises1 = [];
-    for(let i = 0; i < validators.length; i++) {
-      const validator = validators[i];
-      if(validator !== undefined) {
-        if(validator.accountId !== undefined) {
-          if(this.api) {
-            promises1.push(this.api.derive.accounts.info(validator.accountId).then(({ identity }) => {
-              const _identity = this.createIdentity(validator.accountId.toString(), identity);
-              validator.identity = _identity;
-              validator.totalNominators = 0;
-              validator.activeNominators = validator.exposure.others.length;
-              return this.api?.derive.balances.all(validator.accountId);
-            }).then((balances) => {
-              if(balances) {
-                validator.selfStake = balances.lockedBalance.toBigInt();
-              }
-            }));
-          }
-        }
-      }
-      if (i % 20 === 0) {
-        await Promise.all(promises1);
-        promises1 = [];
-      }
-    }
-    if(promises1.length > 0) {
-      await Promise.all(promises1);
-    }
+    validators = await this.retrieveValidatorIdentities(validators);
     console.timeEnd('[ChainData] Retrieving identity for validators');
     console.time('[ChainData] Retrieving next elected');
     for(let i = 0; i < nextElected.length; i++) {
@@ -263,7 +224,7 @@ class ChainData {
     }
     console.timeEnd('[ChainData] Retrieving next elected');
     console.time('[ChainData] Retrieving identity for next elected');
-    promises1 = [];
+    let promises1 = [];
     for(let i = 0; i < nextElects.length; i++) {
       const nextElect = nextElects[i];
       if(nextElect !== undefined) {
@@ -283,13 +244,15 @@ class ChainData {
           }
         }
       }
-      if (i % 20 === 0) {
+      if (i % 10 === 0) {
         await Promise.all(promises1);
         promises1 = [];
+        await sleep(100);
       }
     }
     if(promises1.length > 0) {
       await Promise.all(promises1);
+      await sleep(100);
     }
     console.timeEnd('[ChainData] Retrieving identity for next elected');
     validators = validators.concat(nextElects);
@@ -313,49 +276,20 @@ class ChainData {
           intentions.push(validator);
         }));
       }
-      if (i % 20 === 0) {
+      if (i % 10 === 0) {
         await Promise.all(promises1);
         promises1 = [];
+        await sleep(100);
       }
     }
     if(promises1.length > 0) {
       await Promise.all(promises1);
+      await sleep(100);
     }
     console.timeEnd('[ChainData] Retrieving identity for waitings');
     validators = validators.concat(intentions);
     console.time('[ChainData] Retrieving balance for waitings');
-    const balancedNominators = new Array<BalancedNominator>();
-    let promises = [];
-    for(let i = 0; i < nominators.length; i++) {
-      const nominator = nominators[i];
-      if(!nominator[0]) {
-        throw new Error('nominator[0] is null.');
-      }
-      // eslint-disable-next-line
-      const nominatorId = nominator[0].toHuman()?.toString()!;
-      promises.push(this.api?.derive.balances.all(nominatorId).then((balance)=>{
-        // const balance = await this.api?.derive.balances.all(nominatorId);
-        const _balance = new Balance(balance.freeBalance.toBigInt(), balance.lockedBalance.toBigInt());
-        const targets: string[] = [];
-        try {
-          nominator[1].unwrap().targets.forEach((target)=>{
-            targets.push(target.toString());
-          });
-          balancedNominators.push(new BalancedNominator(nominatorId, targets, _balance));
-        } catch(err) {
-          logger.error(err);
-          logger.debug(nominator.toString());
-          balancedNominators.push(new BalancedNominator(nominatorId, targets, _balance));
-        }
-      }));
-      if (i % 20 === 0) {
-        await Promise.all(promises);
-        promises = [];
-      }
-    }
-    if (promises.length > 0) {
-      await Promise.all(promises);
-    }
+    const balancedNominators = await this.retrieveNominatorBalances(nominators);
     console.timeEnd('[ChainData] Retrieving balance for waitings');
     balancedNominators.forEach(nominator => {
       nominator?.targets.forEach(target => {
@@ -368,6 +302,109 @@ class ChainData {
       });
     });
     return new AllValidatorNominator(validators, balancedNominators);
+  }
+
+  private async retrieveValidatorStakings(validatorAddresses: Vec<ValidatorId>, validators: Validator[]) {
+    const validatorList = new Set<string>();
+    let promises = [];
+    for (let i = 0; i < validatorAddresses.length; i++) {
+      const authorityId = validatorAddresses[i];
+      if (this.api) {
+        promises.push(this.api.derive.staking.query(authorityId, {
+          withDestination: false,
+          withExposure: true,
+          withLedger: true,
+          withNominations: true,
+          withPrefs: true,
+        }).then((validator) => {
+          validators.push(new Validator(authorityId.toString(),
+          validator.exposure, validator.stakingLedger, validator.validatorPrefs));
+          validatorList.add(authorityId.toString());
+        }));
+      }
+      if (promises.length >= 10) {
+        await Promise.all(promises);
+        promises = [];
+        await sleep(100);
+      }
+    }
+    if (promises.length > 0) {
+      await Promise.all(promises);
+      await sleep(100);
+    }
+    return validatorList;
+  }
+
+  private async retrieveNominatorBalances(nominators: any) {
+    const balancedNominators = new Array<BalancedNominator>();
+    let promises = [];
+    for (let i = 0; i < nominators.length; i++) {
+      const nominator = nominators[i];
+      if (!nominator[0]) {
+        throw new Error('nominator[0] is null.');
+      }
+      // eslint-disable-next-line
+      const nominatorId = nominator[0].toHuman()?.toString()!;
+      promises.push(this.api?.derive.balances.all(nominatorId).then((balance) => {
+        // const balance = await this.api?.derive.balances.all(nominatorId);
+        const _balance = new Balance(balance.freeBalance.toBigInt(), balance.lockedBalance.toBigInt());
+        const targets: string[] = [];
+        try {
+          nominator[1].unwrap().targets.forEach((target: any) => {
+            targets.push(target.toString());
+          });
+          balancedNominators.push(new BalancedNominator(nominatorId, targets, _balance));
+        } catch (err) {
+          logger.error(err);
+          logger.debug(nominator.toString());
+          balancedNominators.push(new BalancedNominator(nominatorId, targets, _balance));
+        }
+      }));
+      if (i % 10 === 0) {
+        await Promise.all(promises);
+        promises = [];
+        await sleep(100);
+      }
+    }
+    if (promises.length > 0) {
+      await Promise.all(promises);
+      await sleep(100);
+    }
+    return balancedNominators;
+  }
+
+  private async retrieveValidatorIdentities(validators: Validator[]): Promise<Validator[]> {
+    let promises1 = [];
+    for (let i = 0; i < validators.length; i++) {
+      const validator = validators[i];
+      if (validator !== undefined) {
+        if (validator.accountId !== undefined) {
+          if (this.api) {
+            promises1.push(this.api.derive.accounts.info(validator.accountId).then(({ identity }) => {
+              const _identity = this.createIdentity(validator.accountId.toString(), identity);
+              validator.identity = _identity;
+              validator.totalNominators = 0;
+              validator.activeNominators = validator.exposure.others.length;
+              return this.api?.derive.balances.all(validator.accountId);
+            }).then((balances) => {
+              if (balances) {
+                validator.selfStake = balances.lockedBalance.toBigInt();
+              }
+            }));
+          }
+        }
+      }
+      if (i % 10 === 0) {
+        await Promise.all(promises1);
+        promises1 = [];
+        await sleep(100);
+      }
+    }
+    if (promises1.length > 0) {
+      await Promise.all(promises1);
+      await sleep(100);
+    }
+    return validators;
   }
 
   private createIdentity(accountId: string, identity: DeriveAccountRegistration) {

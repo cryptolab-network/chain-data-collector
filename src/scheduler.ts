@@ -215,6 +215,8 @@ export class Scheduler {
         await this.updateHistoricalAPY();
         await this.updateUnappliedSlashes(era - 1);
       }
+    } catch(e) {
+      logger.error(e);
     } finally {
       await this.db.saveActiveEra(era);
     }
