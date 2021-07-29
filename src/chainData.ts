@@ -363,12 +363,10 @@ class ChainData {
       if (i % 10 === 0) {
         await Promise.all(promises);
         promises = [];
-        await sleep(100);
       }
     }
     if (promises.length > 0) {
       await Promise.all(promises);
-      await sleep(100);
     }
     return balancedNominators;
   }
