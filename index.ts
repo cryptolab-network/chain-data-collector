@@ -25,6 +25,9 @@ const POLKADOT_DECIMAL = 10000000000;
         case 'polkadot':
           initPolkadot();
           break;
+        case 'westend':
+          initWestend();
+          break;
         default: {
           initKusama();
           initPolkadot();
@@ -66,6 +69,23 @@ async function initPolkadot() {
     rpcListener.start();
     const polkadotScheduler = new Scheduler('POLKADOT', chainData, db, cacheData);
     polkadotScheduler.start();
+  } catch (err) {
+    logger.error(err);
+  }
+}
+
+async function initWestend() {
+  try {
+    console.log(keys.WESTEND_WSS);
+    const chainData = new ChainData(keys.WESTEND_WSS);
+    await chainData.connect();
+    const cacheData = new Cache('WND', keys.REDIS_URL, keys.REDIS_PORT);
+    const db = new DatabaseHandler();
+    await db.connect(keys.MONGO_ACCOUNT, keys.MONGO_PASSWORD, keys.MONGO_URL, keys.MONGO_PORT, keys.MONGO_DBNAME_WESTEND);
+    const rpcListener = new RpcListener(chainData, db, KUSAMA_DECIMAL, 'WND');
+    rpcListener.start();
+    const scheduler = new Scheduler('WND', chainData, db, cacheData);
+    scheduler.start();
   } catch (err) {
     logger.error(err);
   }

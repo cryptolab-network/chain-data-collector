@@ -8,6 +8,7 @@
     "start": "node ./build/index.js",
     "startKusama": "node ./build/index.js --chain=kusama",
     "startPolkadot": "node ./build/index.js --chain=polkadot",
+    "startWestend": "node ./build/index.js --chain=westend",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {

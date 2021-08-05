@@ -335,6 +335,7 @@ class ChainData {
     return validatorList;
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private async retrieveNominatorBalances(nominators: any) {
     const balancedNominators = new Array<BalancedNominator>();
     let promises = [];
@@ -350,6 +351,7 @@ class ChainData {
         const _balance = new Balance(balance.freeBalance.toBigInt(), balance.lockedBalance.toBigInt());
         const targets: string[] = [];
         try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           nominator[1].unwrap().targets.forEach((target: any) => {
             targets.push(target.toString());
           });

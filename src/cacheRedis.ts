@@ -1,7 +1,7 @@
 import moment from 'moment';
 import redis from 'redis';
 import { logger } from './logger';
-import { BalancedNominator, Validator, ValidatorCache, ValidatorUnclaimedEras } from './types';
+import { BalancedNominator, ValidatorCache, ValidatorUnclaimedEras } from './types';
 
 export class Cache {
   client: redis.RedisClient

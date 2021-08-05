@@ -20,7 +20,7 @@ export class Scheduler {
   cacheData: Cache
   db: DatabaseHandler
   isCaching: boolean
-  oneKvHandler: OneKvHandler
+  oneKvHandler: OneKvHandler | undefined
   name: string
   constructor(name: string, chainData: ChainData, db: DatabaseHandler, cacheData: Cache) {
     this.chainData = chainData;
@@ -30,10 +30,11 @@ export class Scheduler {
     if (name === 'POLKADOT') {
       this.oneKvHandler = new OneKvHandler(this.chainData, this.cacheData, this.db, keys.API_1KV_POLKADOT);
       DECIMALS = 100000000000000;
-    } else {
+    } else if (name === 'KUSAMA') {
       this.oneKvHandler = new OneKvHandler(this.chainData, this.cacheData, this.db, keys.API_1KV_KUSAMA);
       DECIMALS = 1000000000000;
     }
+    this.oneKvHandler = undefined;
     this.name = name;
   }
 
@@ -200,10 +201,12 @@ export class Scheduler {
   }
 
   private async cacheOneKVInfo(validators: (Validator | undefined)[]) {
-    const oneKvSummary = await this.oneKvHandler.getValidValidators(validators);
-    this.cacheData.update<string>('onekv', oneKvSummary.toJSON());
-    const oneKvNominators = await this.oneKvHandler.getOneKvNominators();
-    this.cacheData.update<OneKvNominatorSummary>('oneKvNominators', oneKvNominators);
+    if (this.oneKvHandler !== undefined) {
+      const oneKvSummary = await this.oneKvHandler.getValidValidators(validators);
+      this.cacheData.update<string>('onekv', oneKvSummary.toJSON());
+      const oneKvNominators = await this.oneKvHandler.getOneKvNominators();
+      this.cacheData.update<OneKvNominatorSummary>('oneKvNominators', oneKvNominators);
+    }
   }
 
   private async updateActiveEra() {
