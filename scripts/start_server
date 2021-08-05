@@ -2,3 +2,4 @@
 cd /home/ubuntu/cdc
 systemctl restart cryptolab-cdc-kusama.service
 systemctl restart cryptolab-cdc-polkadot.service
+systemctl restart cryptolab-cdc-westend.service
