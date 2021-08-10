@@ -60,6 +60,7 @@ interface IValidator extends Document {
   rewards: ValidatorTotalReward;
   stakerPoints: StakerPoint;
   averageApy: number;
+  blocked: boolean;
 }
 
 const ValidatorSchema: Schema = new Schema({
@@ -85,6 +86,7 @@ const ValidatorSchema: Schema = new Schema({
     },
   ],
   averageApy: Number,
+  blocked: Boolean,
 });
 
 ValidatorSchema.index({

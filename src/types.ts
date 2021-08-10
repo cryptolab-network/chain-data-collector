@@ -378,10 +378,11 @@ export class ValidatorCache {
   stakerPoints: StakerPoint[]
   total: bigint
   selfStake: bigint
+  blockNomination: boolean
 
   constructor(id: string, era: number, exposure: Exposure, commission: number,
   apy: number, identity: Identity | undefined, nominators: string[], commissionChanged: number,
-  stakerPoints: StakerPoint[], total: string | bigint, selfStake: string | bigint) {
+  stakerPoints: StakerPoint[], total: string | bigint, selfStake: string | bigint, blockNomination: boolean) {
     this.id = id;
     this.era = era;
     this.exposure = exposure;
@@ -401,11 +402,13 @@ export class ValidatorCache {
     } else {
       this.selfStake = selfStake;
     }
+    this.blockNomination = blockNomination;
   }
 
   static fromObject(obj: ValidatorCache): ValidatorCache {
     return new ValidatorCache(obj.id, obj.era, Exposure.fromObject(obj.exposure), obj.commission, obj.apy,
-      Identity.fromObject(obj.identity), obj.nominators, obj.commissionChanged, obj.stakerPoints, obj.total, obj.selfStake);
+      Identity.fromObject(obj.identity), obj.nominators, obj.commissionChanged,
+      obj.stakerPoints, obj.total, obj.selfStake, obj.blockNomination);
   }
 
   isEqual(other: ValidatorCache): boolean {
@@ -459,6 +462,10 @@ export class ValidatorCache {
       logger.debug(`self stake mismatch ${this.selfStake} ${other.selfStake}`);
       return false;
     }
+    if(this.blockNomination !== other.blockNomination) {
+      logger.debug(`block nomination mismatch ${this.blockNomination} ${other.blockNomination}`);
+      return false;
+    }
     return true;
   }
 
@@ -466,7 +473,7 @@ export class ValidatorCache {
     return new ValidatorDbSchema(this.id,
       new IdentityDbSchema(this.identity.getIdentity(), this.identity.getParent(),
       this.identity.getSub(), this.identity.isVerified()),
-    new StatusChange(this.commissionChanged), this.stakerPoints);
+    new StatusChange(this.commissionChanged), this.stakerPoints, this.blockNomination);
   }
 
   toNominationDbSchema(): NominationDbSchema {
@@ -507,11 +514,14 @@ class ValidatorDbSchema {
   info?: NominationDbSchema[]
   rewards?: ValidatorTotalReward
   stakerPoints: StakerPoint[]
-  constructor(id: string, identity: IdentityDbSchema, statusChange: StatusChange, stakerPoints: StakerPoint[]) {
+  blocked: boolean
+  constructor(id: string, identity: IdentityDbSchema,
+    statusChange: StatusChange, stakerPoints: StakerPoint[], blocked: boolean) {
     this.id = id;
     this.identity = identity;
     this.statusChange = statusChange;
     this.stakerPoints = stakerPoints;
+    this.blocked = blocked;
   }
 }
 

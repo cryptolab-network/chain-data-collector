@@ -258,6 +258,7 @@ export class DatabaseHandler {
                   commission: validator.commissionChanged
                 },
                 stakerPoints: validator.stakerPoints,
+                blocked: validator.blockNomination,
               },
               "upsert": true,
             }

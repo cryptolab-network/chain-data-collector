@@ -266,7 +266,7 @@ export class Scheduler {
       }), validator.nominators.reduce((acc, n) => {
         acc += n.balance.lockedBalance;
         return acc;
-      }, BigInt(0)), validator.selfStake);
+      }, BigInt(0)), validator.selfStake, validator.prefs.blocked);
     this.saveUnclaimedEras(validator.accountId, unclaimedEras?.map((era) => {
       return era.era.toNumber();
     }));
