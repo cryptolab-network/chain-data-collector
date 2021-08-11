@@ -5,6 +5,8 @@ import { Scheduler } from './src/scheduler';
 import { RpcListener } from './src/event/rpcListener';
 import { logger } from './src/logger';
 import { keys } from './src/config/keys';
+import SlackBot from './src/slack';
+
 import yargs from 'yargs/yargs';
 
 const argv = yargs(process.argv.slice(2)).options({
@@ -17,34 +19,38 @@ const POLKADOT_DECIMAL = 10000000000;
 (async () => {
   try {
     logger.debug(argv);
+    let bot;
+    if (keys.SLACK_WEBHOOK !== undefined && keys.SLACK_WEBHOOK.length > 0) {
+      bot = new SlackBot(keys.SLACK_WEBHOOK);
+    }
     if (argv.chain !== undefined) {
       switch (argv.chain) {
         case 'kusama':
-          initKusama();
+          initKusama(bot);
           break;
         case 'polkadot':
-          initPolkadot();
+          initPolkadot(bot);
           break;
         case 'westend':
-          initWestend();
+          initWestend(bot);
           break;
         default: {
-          initKusama();
-          initPolkadot();
+          initKusama(bot);
+          initPolkadot(bot);
         }
       }
     } else {
-      initKusama();
-      initPolkadot();
+      initKusama(bot);
+      initPolkadot(bot);
     }
   } catch (err) {
     logger.error(err);
   }
 })();
 
-async function initKusama() {
+async function initKusama(bot?: SlackBot) {
   try {
-    const chainData = new ChainData(keys.KUSAMA_WSS);
+    const chainData = new ChainData(keys.KUSAMA_WSS, bot);
     await chainData.connect();
     const cacheData = new Cache('KSM', keys.REDIS_URL, keys.REDIS_PORT);
     const db = new DatabaseHandler();
@@ -58,9 +64,9 @@ async function initKusama() {
   }
 }
 
-async function initPolkadot() {
+async function initPolkadot(bot?: SlackBot) {
   try {
-    const chainData = new ChainData(keys.POLKADOT_WSS);
+    const chainData = new ChainData(keys.POLKADOT_WSS, bot);
     await chainData.connect();
     const cacheData = new Cache('DOT', keys.REDIS_URL, keys.REDIS_PORT);
     const db = new DatabaseHandler();
@@ -74,10 +80,10 @@ async function initPolkadot() {
   }
 }
 
-async function initWestend() {
+async function initWestend(bot?: SlackBot) {
   try {
     console.log(keys.WESTEND_WSS);
-    const chainData = new ChainData(keys.WESTEND_WSS);
+    const chainData = new ChainData(keys.WESTEND_WSS, bot);
     await chainData.connect();
     const cacheData = new Cache('WND', keys.REDIS_URL, keys.REDIS_PORT);
     const db = new DatabaseHandler();

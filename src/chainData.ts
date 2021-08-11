@@ -4,6 +4,7 @@ import { Identity, BalancedNominator, Balance, Validator, EraRewardDist, Validat
 import { logger } from './logger';
 import { Vec } from '@polkadot/types';
 import { ValidatorId } from '@polkadot/types/interfaces';
+import SlackBot from './slack';
 
 export { ChainData };
 
@@ -24,8 +25,10 @@ export class ApiError extends Error {
 class ChainData {
   url: string
   api?: ApiPromise
-  constructor(url: string) {
+  slackBot?: SlackBot
+  constructor(url: string, slackBot?: SlackBot) {
     this.url = url;
+    this.slackBot = slackBot;
   }
 
   async connect(): Promise<void> {
@@ -34,6 +37,9 @@ class ChainData {
     });
     this.api.on('disconnected', ()=>{
       logger.warn(`${this.url} is disconnected`);
+      if (this.slackBot) {
+        this.slackBot.send(`${this.url} is disconnected`);
+      }
     });
     this.api.on('error', (e)=>{
       logger.warn(`${e}`);

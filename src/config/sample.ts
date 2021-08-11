@@ -17,4 +17,5 @@ export = {
   REDIS_URL: '127.0.0.1',
   REDIS_PORT: 6379,
   WESTEND_WSS: 'wss://westend.api.onfinality.io/public-ws',
+  SLACK_WEBHOOK: '',
 }
