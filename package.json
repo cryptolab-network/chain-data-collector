@@ -35,6 +35,6 @@
     "@types/async-lock": "^1.1.2",
     "@types/axios": "^0.14.0",
     "@types/cron": "^1.7.2",
-    "@types/mongoose": "^5.10.4"
+    "@types/mongoose": "^5.11.97"
   }
 }
