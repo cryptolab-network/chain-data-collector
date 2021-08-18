@@ -34,7 +34,7 @@
   "devDependencies": {
     "@types/async-lock": "^1.1.2",
     "@types/axios": "^0.14.0",
-    "@types/cron": "^1.7.2",
+    "@types/cron": "^1.7.3",
     "@types/mongoose": "^5.10.4"
   }
 }
