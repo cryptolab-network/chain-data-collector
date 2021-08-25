@@ -3,7 +3,7 @@ import { Identity, IdentityDbSchema, StakerPoint, StatusChange, ValidatorTotalRe
 export { ValidatorModel, ValidatorSchema, NominationSchema, NominatorSchema,
   NominationModel, ChainInfoSchema, ChainInfoModel, IChainInfo, UnclaimedEraInfoSchema, IUnclaimedEraInfo,
   IStashInfo, StashInfoSchema, IEraReward, IValidator, INomination, IValidatorSlash,
-  IValidatorSlashNominator, INominator, INominatorSlash, IBalance };
+  IValidatorSlashNominator, INominator, INominatorSlash, IBalance, IValidatorCommissionChange };
 
 interface IStashInfo extends Document {
   stash: string;
@@ -195,3 +195,42 @@ NominatorSlashSchema.index({'address': 1, 'era': 1, 'validator': 1}, {unique: tr
 function toHexString(v: bigint) {
   return v.toString(10);
 }
+
+interface IValidatorCommissionChange extends Document {
+  address: string;
+  era: number;
+  commissionFrom: number;
+  commissionTo: number;
+}
+
+export const ValidatorCommissionSchema: Schema = new Schema({
+  address: String,
+  era: Number,
+  commissionFrom: Number,
+  commissionTo: Number,
+});
+
+ValidatorCommissionSchema.index({'address': 1, 'era': 1, 'commissionFrom': 1, 'commssionTo': 1}, {unique: true});
+
+export interface IAllValidatorsInactive extends Document {
+  address: string;
+  era: number;
+}
+
+export const AllValidatorsInactiveSchema: Schema = new Schema({
+  address: String,
+  era: Number,
+});
+
+AllValidatorsInactiveSchema.index({'address': 1, 'era': 1}, {unique: true});
+
+export interface INominationRecord extends Document {
+  stash: string;
+  validators: string[];
+}
+
+export const NominationRecordSchema: Schema = new Schema({
+  stash: String,
+  validators: [String],
+});
+

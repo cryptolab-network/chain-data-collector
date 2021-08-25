@@ -1,4 +1,4 @@
-export { Identity, BalancedNominator, Balance, Validator, Exposure, ValidatorDbSchema, NominationDbSchema, StatusChange, IdentityDbSchema, EraRewardDist };
+export { Identity, BalancedNominator, Balance, Validator, Exposure, ValidatorDbSchema, NominationDbSchema, StatusChange, IdentityDbSchema, EraRewardDist, ValidatorCommissionChangeSchema };
 import type { EraIndex as PolkadotEraIndex, Exposure as PolkadotExposure,
   StakingLedger as PolkadotStakingLedger, ValidatorPrefs as PolkadotValidatorPrefs } from '@polkadot/types/interfaces';
 import { LeanDocument } from 'mongoose';
@@ -366,6 +366,30 @@ class ValidatorPrefs {
   }
 }
 
+export class CommissionChanged {
+  commissionChanged: number
+  commissionFrom: number
+  commissionTo: number
+
+  constructor(commissionChanged: number, commissionFrom: number, commissionTo: number) {
+    this.commissionChanged = commissionChanged;
+    this.commissionFrom = commissionFrom;
+    this.commissionTo = commissionTo;
+  }
+  isEqual(other: CommissionChanged): boolean {
+    if (this.commissionChanged !== other.commissionChanged) {
+      return false;
+    }
+    if (this.commissionFrom !== other.commissionFrom) {
+      return false;
+    }
+    if (this.commissionTo !== other.commissionTo) {
+      return false;
+    }
+    return true;
+  }
+}
+
 export class ValidatorCache {
   id: string
   era: number
@@ -374,14 +398,14 @@ export class ValidatorCache {
   apy: number
   identity: Identity
   nominators: string[]
-  commissionChanged: number
+  commissionChanged: CommissionChanged
   stakerPoints: StakerPoint[]
   total: bigint
   selfStake: bigint
   blockNomination: boolean
 
   constructor(id: string, era: number, exposure: Exposure, commission: number,
-  apy: number, identity: Identity | undefined, nominators: string[], commissionChanged: number,
+  apy: number, identity: Identity | undefined, nominators: string[], commissionChanged: CommissionChanged,
   stakerPoints: StakerPoint[], total: string | bigint, selfStake: string | bigint, blockNomination: boolean) {
     this.id = id;
     this.era = era;
@@ -444,7 +468,7 @@ export class ValidatorCache {
       logger.debug(`nominators mismatch`);
       return false;
     }
-    if (this.commissionChanged !== other.commissionChanged) {
+    if (this.commissionChanged.isEqual(other.commissionChanged)) {
       logger.debug(`commission changed: ${this.commissionChanged} ${other.commissionChanged}`);
       return false;
     }
@@ -473,7 +497,7 @@ export class ValidatorCache {
     return new ValidatorDbSchema(this.id,
       new IdentityDbSchema(this.identity.getIdentity(), this.identity.getParent(),
       this.identity.getSub(), this.identity.isVerified()),
-    new StatusChange(this.commissionChanged), this.stakerPoints, this.blockNomination);
+    new StatusChange(this.commissionChanged.commissionChanged), this.stakerPoints, this.blockNomination);
   }
 
   toNominationDbSchema(): NominationDbSchema {
@@ -542,6 +566,29 @@ class IdentityDbSchema {
     this.parent = parent;
     this.sub = sub;
     this.isVerified = isVerified;
+  }
+}
+
+class ValidatorCommissionChangeSchema {
+  address: string
+  era: number
+  commissionFrom: number
+  commissionTo: number
+
+  constructor(address: string, era: number, commissionFrom: number, commissionTo: number) {
+    this.address = address;
+    this.era = era;
+    this.commissionFrom = commissionFrom;
+    this.commissionTo = commissionTo;
+  }
+
+  toObject(): {address: string, era: number, commissionFrom: number, commissionTo: number} {
+    return {
+      address: this.address,
+      era: this.era,
+      commissionFrom: this.commissionFrom,
+      commissionTo: this.commissionTo,
+    };
   }
 }
 
@@ -702,6 +749,16 @@ export class AllValidatorNominator {
   constructor(validators: Validator[], balancedNominators: BalancedNominator[]) {
     this.validators = validators;
     this.balancedNominators = balancedNominators;
+  }
+}
+
+export class NominationRecordsDBSchema {
+  stash: string
+  validators: string[]
+
+  constructor(stash: string, validators: string[]) {
+    this.stash = stash;
+    this.validators = validators;
   }
 }
 

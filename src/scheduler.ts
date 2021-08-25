@@ -3,7 +3,7 @@ import { Cache } from './cacheRedis';
 import { OneKvNominatorSummary } from './oneKvData';
 import { DatabaseHandler } from "./db/database";
 import { CronJob } from 'cron';
-import { Validator, StakerPoint, NominatorSlash, BalancedNominator, ValidatorCache, ValidatorUnclaimedEras } from "./types";
+import { Validator, StakerPoint, NominatorSlash, BalancedNominator, ValidatorCache, ValidatorUnclaimedEras, CommissionChanged } from "./types";
 import { OneKvHandler } from "./oneKvData";
 import { RewardCalc } from "./rewardCalc";
 import { logger } from './logger';
@@ -109,6 +109,7 @@ export class Scheduler {
         logger.debug('length ' + validatorWaitingInfo.validators.length);
         await this.cacheOneKVInfo(validatorWaitingInfo.validators);
         console.timeEnd(`[${this.name}] Update Cache Data`);
+        await this.checkAllInactive(validatorWaitingInfo.validators, activeEra);
         logger.info(`[${this.name}] scheduler ends`);
       } catch (err) {
         logger.error(err);
@@ -117,6 +118,29 @@ export class Scheduler {
       this.isCaching = false;
     }, null, true, 'America/Los_Angeles', null, true);
     job.start();
+  }
+
+  private async checkAllInactive(validators: (Validator | undefined)[], era: number) {
+    const validatorMap = validators.reduce((acc, v) => {
+      if (v !== undefined) {
+        acc.set(v.accountId, v);
+      }
+      return acc;
+    }, new Map<string, Validator>());
+    const records = await this.db.getAllNominationRecords()
+    records.forEach(async (nr) => {
+      let allInactive = true;
+      nr.validators.forEach((v) => {
+        const validator = validatorMap.get(v);
+        if (validator?.exposure.total !== BigInt(0)) {
+          allInactive = false;
+        }
+      });
+      if (allInactive === true) {
+        // write event to db
+        await this.db.saveAllInactiveEvent(nr.stash, era);
+      }
+    });
   }
 
   private async updateNominators() {
@@ -236,21 +260,21 @@ export class Scheduler {
     const unclaimedEras = activeEras?.filter((point) => !validator.stakingLedger.claimedRewards.includes(point.era));
     const lastEraInfo = await this.db.getValidatorStatusOfEra(validator.accountId, era - 1);
     let latestCommission = 0;
+    let commissionChanged = new CommissionChanged(0, 0, 0);
     if (lastEraInfo !== undefined) {
       if (lastEraInfo !== undefined && lastEraInfo !== null) {
         if (lastEraInfo.info !== undefined) {
           latestCommission = lastEraInfo.info[0].commission;
         }
       }
-    }
-    let commissionChanged = 0;
-    if (latestCommission != validator.prefs.commissionPct()) {
-      if (validator.prefs.commissionPct() > latestCommission) {
-        commissionChanged = 1;
-      } else if (validator.prefs.commissionPct() < latestCommission) {
-        commissionChanged = 2;
-      } else {
-        commissionChanged = 0;
+      if (latestCommission != validator.prefs.commissionPct()) {
+        if (validator.prefs.commissionPct() > latestCommission) {
+          commissionChanged = new CommissionChanged(1, latestCommission, validator.prefs.commissionPct());
+        } else if (validator.prefs.commissionPct() < latestCommission) {
+          commissionChanged = new CommissionChanged(2, latestCommission, validator.prefs.commissionPct());
+        } else {
+          commissionChanged = new CommissionChanged(0, latestCommission, validator.prefs.commissionPct());
+        }
       }
     }
     let erasPerDay = 1;

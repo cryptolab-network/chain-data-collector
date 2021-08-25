@@ -23,7 +23,7 @@
   },
   "homepage": "https://github.com/cryptolab-network/chain-data-collector#readme",
   "dependencies": {
-    "@polkadot/api": "^4.16.2",
+    "@polkadot/api": "^5.5.1",
     "@slack/webhook": "^6.0.0",
     "@types/yargs": "^17.0.1",
     "async-lock": "^1.2.8",

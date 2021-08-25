@@ -1,7 +1,7 @@
 import { Mongoose, Model } from 'mongoose';
 import {
   ValidatorDbSchema, NominationDbSchema, IdentityDbSchema, ValidatorEraReward,
-  BalancedNominator, ValidatorSlash, NominatorSlash, ValidatorCache, ValidatorUnclaimedEras
+  BalancedNominator, ValidatorSlash, NominatorSlash, ValidatorCache, ValidatorUnclaimedEras, ValidatorCommissionChangeSchema, NominationRecordsDBSchema
 } from '../types';
 import {
   ValidatorSchema, NominationSchema, NominatorSchema,
@@ -13,7 +13,13 @@ import {
   IStashInfo,
   INominator,
   IValidatorSlash,
-  INominatorSlash
+  INominatorSlash,
+  IValidatorCommissionChange,
+  ValidatorCommissionSchema,
+  IAllValidatorsInactive,
+  AllValidatorsInactiveSchema,
+  NominationRecordSchema,
+  INominationRecord,
 } from './schema';
 import AsyncLock from 'async-lock';
 import { logger } from '../logger';
@@ -29,6 +35,9 @@ export class DatabaseHandler {
   NominatorModel?: Model<INominator>
   ValidatorSlashModel?: Model<IValidatorSlash>
   NominatorSlashModel?: Model<INominatorSlash>
+  ValidatorCommissionModel? : Model<IValidatorCommissionChange>
+  AllValidatorInactiveModel?: Model<IAllValidatorsInactive>
+  NominationRecordModel?: Model<INominationRecord>
   lock: AsyncLock
   constructor() {
     this.lock = new AsyncLock({ maxPending: 1000 });
@@ -72,6 +81,9 @@ export class DatabaseHandler {
     this.NominatorModel = db.model<INominator>('Nominator_' + dbName, NominatorSchema, 'nominator');
     this.ValidatorSlashModel = db.model<IValidatorSlash>('ValidatorSlash_' + dbName, ValidatorSlashSchema, 'validatorSlash');
     this.NominatorSlashModel = db.model<INominatorSlash>('NominatorSlash_' + dbName, NominatorSlashSchema, 'nominatorSlash');
+    this.ValidatorCommissionModel = db.model<IValidatorCommissionChange>('ValidatorCommissionChange_' + dbName, ValidatorCommissionSchema, 'commission');
+    this.AllValidatorInactiveModel = db.model<IAllValidatorsInactive>('AllInactive_' + dbName, AllValidatorsInactiveSchema, 'inactiveEvents');
+    this.NominationRecordModel = db.model<INominationRecord>('NominationRecord_' + dbName, NominationRecordSchema, 'nominationRecords');
     db.on('error', console.error.bind(console, 'connection error:'));
     db.once('open', function () {
       logger.info('DB connected');
@@ -255,7 +267,7 @@ export class DatabaseHandler {
                 identity: new IdentityDbSchema(validator.identity.getIdentity(), validator.identity.getParent(),
                   validator.identity.getSub(), validator.identity.isVerified()),
                 statusChange: {
-                  commission: validator.commissionChanged
+                  commission: validator.commissionChanged.commissionChanged
                 },
                 stakerPoints: validator.stakerPoints,
                 blocked: validator.blockNomination,
@@ -266,7 +278,21 @@ export class DatabaseHandler {
         );
       });
       await this.ValidatorModel?.bulkWrite(script);
-      //nomination
+      // commission changed
+      script = [];
+      data.forEach(async (validator) => {
+        if (validator.commissionChanged.commissionChanged !== 0 && validator.commissionChanged.commissionFrom === 0) {
+          logger.debug('commission changed');
+          const nData = new ValidatorCommissionChangeSchema(
+            validator.id,
+            validator.era,
+            validator.commissionChanged.commissionFrom,
+            validator.commissionChanged.commissionTo,
+          );
+          await this.ValidatorCommissionModel?.create(nData.toObject()).catch((err: Error) => logger.error(err));
+        }
+      });
+      // nomination
       script = [];
       data.forEach((validator) => {
         const nData = new NominationDbSchema(validator.era, validator.exposure, validator.nominators,
@@ -327,10 +353,6 @@ export class DatabaseHandler {
         const sorted = data.targets.sort();
         const identical = targets.sort().every((v: string, i: number) => v === sorted[i]);
         if (!identical) {
-          logger.debug('+++++++');
-          logger.debug(nominator);
-          logger.debug(data);
-          logger.debug('------');
           this.NominatorModel?.updateOne({ address: data.address }, {
             $set: { targets: data.targets },
           }).exec().catch((err) => {
@@ -505,6 +527,21 @@ export class DatabaseHandler {
       era: era,
       amount: amount,
       timestamp: timestamp,
+    }).catch(() => {
+      // it is ok
+      //console.error(err);
+    });
+  }
+
+  async getAllNominationRecords(): Promise<NominationRecordsDBSchema[]> {
+    const records = await this.NominationRecordModel?.find({}).lean().exec() as unknown as NominationRecordsDBSchema[];
+    return records;
+  }
+
+  async saveAllInactiveEvent(address: string, era: number): Promise<void> {
+    await this.AllValidatorInactiveModel?.create({
+      address: address,
+      era: era
     }).catch(() => {
       // it is ok
       //console.error(err);
