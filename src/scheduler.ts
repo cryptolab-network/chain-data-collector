@@ -226,7 +226,6 @@ export class Scheduler {
   }
 
   private async cacheOneKVInfo(validators: (Validator | undefined)[]) {
-    console.log(this.oneKvHandler);
     if (this.oneKvHandler !== undefined) {
       const oneKvSummary = await this.oneKvHandler.getValidValidators(validators);
       this.cacheData.update<string>('onekv', oneKvSummary.toJSON());
