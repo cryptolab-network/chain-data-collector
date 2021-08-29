@@ -193,6 +193,7 @@ class ChainData {
       this.api.derive.staking.waitingInfo({
         withLedger: true,
         withPrefs: true,
+        withExposure: true,
       }),
       this.api?.query.staking.nominators.entries(),
     ])
@@ -266,6 +267,9 @@ class ChainData {
     promises1 = [];
     for(let i = 0; i < waitingInfo.info.length; i++) {
       const intention = waitingInfo.info[i];
+      if(validatorList.has(intention.accountId.toString())) {
+        continue;
+      }
       const validator = new Validator(intention.accountId.toString(), intention.exposure,
             intention.stakingLedger, intention.validatorPrefs);
       if(this.api) {
@@ -323,8 +327,9 @@ class ChainData {
           withNominations: true,
           withPrefs: true,
         }).then((validator) => {
-          validators.push(new Validator(authorityId.toString(),
-          validator.exposure, validator.stakingLedger, validator.validatorPrefs));
+          const v = new Validator(authorityId.toString(),
+          validator.exposure, validator.stakingLedger, validator.validatorPrefs);
+          validators.push(v);
           validatorList.add(authorityId.toString());
         }));
       }
