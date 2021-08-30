@@ -149,6 +149,7 @@ class ChainData {
       this.api!.derive.staking.waitingInfo({
         withLedger: true,
         withPrefs: true,
+        withExposure: true,
       }),
       this.api!.query.staking.nominators.entries(),
     ])
