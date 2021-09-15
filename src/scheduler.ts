@@ -292,13 +292,16 @@ export class Scheduler {
       }, BigInt(0)), validator.selfStake, validator.prefs.blocked);
     this.saveUnclaimedEras(validator.accountId, unclaimedEras?.map((era) => {
       return era.era.toNumber();
-    }));
+    }), era);
     this.saveValidatorNominationData(validator.accountId, data);
     this.saveNominators(validator);
   }
 
-  private async saveUnclaimedEras(validator: string, unclaimedEras: number[]) {
+  private async saveUnclaimedEras(validator: string, unclaimedEras: number[], currentEra: number) {
     unclaimedEraCache.set(validator, new ValidatorUnclaimedEras(validator, unclaimedEras));
+    if (unclaimedEras.length > 10) {
+      await this.db.saveStalePayoutEvents(validator, currentEra, unclaimedEras);
+    }
   }
 
   private async saveValidatorNominationData(validator: string, data: ValidatorCache) {

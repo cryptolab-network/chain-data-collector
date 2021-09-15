@@ -234,3 +234,16 @@ export const NominationRecordSchema: Schema = new Schema({
   validators: [String],
 });
 
+export const StalePayoutEventSchema: Schema = new Schema({
+  address: String,
+  era: Number,
+  unclaimedPayoutEras: [Number],
+});
+
+export interface IStalePayoutEvent extends Document {
+  address: string;
+  era: number;
+  unclaimedPayoutEras: number[];
+}
+
+StalePayoutEventSchema.index({'address': 1, 'era': 1}, {unique: true});

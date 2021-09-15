@@ -20,6 +20,8 @@ import {
   AllValidatorsInactiveSchema,
   NominationRecordSchema,
   INominationRecord,
+  IStalePayoutEvent,
+  StalePayoutEventSchema,
 } from './schema';
 import AsyncLock from 'async-lock';
 import { logger } from '../logger';
@@ -38,6 +40,7 @@ export class DatabaseHandler {
   ValidatorCommissionModel? : Model<IValidatorCommissionChange>
   AllValidatorInactiveModel?: Model<IAllValidatorsInactive>
   NominationRecordModel?: Model<INominationRecord>
+  StalePayoutEventModel?: Model<IStalePayoutEvent>
   lock: AsyncLock
   constructor() {
     this.lock = new AsyncLock({ maxPending: 1000 });
@@ -84,6 +87,7 @@ export class DatabaseHandler {
     this.ValidatorCommissionModel = db.model<IValidatorCommissionChange>('ValidatorCommissionChange_' + dbName, ValidatorCommissionSchema, 'commission');
     this.AllValidatorInactiveModel = db.model<IAllValidatorsInactive>('AllInactive_' + dbName, AllValidatorsInactiveSchema, 'inactiveEvents');
     this.NominationRecordModel = db.model<INominationRecord>('NominationRecord_' + dbName, NominationRecordSchema, 'nominationRecords');
+    this.StalePayoutEventModel = db.model<IStalePayoutEvent>('StalePayoutEvent_' + dbName, StalePayoutEventSchema, 'stalePayouts');
     db.on('error', console.error.bind(console, 'connection error:'));
     db.once('open', function () {
       logger.info('DB connected');
@@ -530,6 +534,14 @@ export class DatabaseHandler {
     }).catch(() => {
       // it is ok
       //console.error(err);
+    });
+  }
+
+  async saveStalePayoutEvents(address: string, era: number, unclaimedPayouts: number[]): Promise<void> {
+    await this.StalePayoutEventModel?.create({
+      address: address,
+      era: era,
+      unclaimedPayoutEras: unclaimedPayouts
     });
   }
 
