@@ -241,8 +241,8 @@ export class Scheduler {
       const dbEra = await this.db.getActiveEra();
       if (era !== dbEra) {
         await this.updateHistoricalAPY();
-        await this.updateUnappliedSlashes(era - 1);
       }
+      await this.updateUnappliedSlashes(era);
     } catch(e) {
       logger.error(e);
     } finally {
