@@ -542,6 +542,8 @@ export class DatabaseHandler {
       address: address,
       era: era,
       unclaimedPayoutEras: unclaimedPayouts
+    }).catch(() => {
+      // it is ok
     });
   }
 
