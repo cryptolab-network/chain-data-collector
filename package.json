@@ -29,7 +29,7 @@
     "divide-bigint": "^1.0.4",
     "moment": "^2.29.1",
     "mongoose": "^5.12.3",
-    "yargs": "^16.2.0"
+    "yargs": "^17.2.0"
   },
   "devDependencies": {
     "@types/async-lock": "^1.1.2",
