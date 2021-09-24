@@ -90,13 +90,24 @@ export class RpcListener {
     for (let i = 0; i < allRecords.length; i++) {
         const { event } = allRecords[i];
         if (event.section.toLowerCase() == 'staking'
-                && event.method.toLowerCase() == 'reward') {
+                && event.method.toLowerCase() == 'rewarded') {
             const reward = {
                 timestamp: parseInt(timestamp.toString()),
                 targetStashAddress: event.data[0].toString(),
                 amount: event.data[1].toString()
             };
             rewards.push(reward);
+        }
+        if (event.section.toLowerCase() === 'staking'
+        && (event.method.toLowerCase() === 'chilled' || event.method.toLowerCase() === 'chill')) {
+          const stash = event.data[0].toString();
+          console.log(event.toHuman());
+        }
+        if (event.section.toLowerCase() === 'staking'
+        && (event.method.toLowerCase() === 'kicked' || event.method.toLowerCase() === 'kick')) {
+          const nominator = event.data[0].toString();
+          const stash = event.data[1].toString();
+          console.log(event.toHuman());
         }
     }
     return rewards;
