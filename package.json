@@ -27,7 +27,7 @@
     "@slack/webhook": "^6.0.0",
     "@types/yargs": "^17.0.1",
     "async-lock": "^1.2.8",
-    "axios": "^0.21.1",
+    "axios": "^0.21.4",
     "cron": "^1.8.2",
     "divide-bigint": "^1.0.4",
     "moment": "^2.29.1",
