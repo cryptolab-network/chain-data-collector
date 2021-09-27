@@ -247,3 +247,46 @@ export interface IStalePayoutEvent extends Document {
 }
 
 StalePayoutEventSchema.index({'address': 1, 'era': 1}, {unique: true});
+
+export const ChillEventSchema: Schema = new Schema({
+  address: String,
+  era: Number,
+});
+
+export interface IChillEvent extends Document {
+  address: string;
+  era: number;
+}
+
+ChillEventSchema.index({'address': 1, 'era': 1}, {unique: true});
+
+export const KickEventSchema: Schema = new Schema({
+  address: String,
+  era: Number,
+  nominator: String,
+  timestamp: Number,
+});
+
+export interface IKickEvent extends Document {
+  address: string;
+  era: number;
+  nominator: string;
+  timestamp: number;
+}
+
+ChillEventSchema.index({'address': 1, 'era': 1, 'nominator': 1}, {unique: true});
+
+export const OverSubscribeEventSchema: Schema = new Schema({
+  address: String,
+  era: Number,
+  nominators: [String],
+});
+
+export interface IOverSubscribeEvent extends Document {
+  address: string;
+  era: number;
+  nominators: string[];
+}
+
+OverSubscribeEventSchema.index({'address': 1, 'era': 1}, {unique: true});
+

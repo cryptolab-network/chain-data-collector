@@ -64,10 +64,16 @@ export class RpcListener {
               this.currentEra = era.unwrap().index.toNumber();
               logger.debug('era = ' + this.currentEra);
             }
-            const rewards = await this.getRewardsInBlock(blockHash.toString());
+            const {rewards, chills, kicks} = await this.getEventsInBlock(blockHash.toString());
             for (const reward of rewards) {
               await this.db.saveRewards(reward.targetStashAddress, era.unwrap().index.toNumber(),
                 divide(BigInt(reward.amount), BigInt(this.decimals)), reward.timestamp);
+            }
+            for (const chill of chills) {
+              await this.db.saveChillEvent(chill.validator, era.unwrap().index.toNumber(), chill.timestamp);
+            }
+            for (const kick of kicks) {
+              await this.db.saveKickEvent(kick.validator, era.unwrap().index.toNumber(), kick.nominator, kick.timestamp);
             }
             await this.db.saveLastFetchedBlock(i);
           } catch (error) {
@@ -83,10 +89,12 @@ export class RpcListener {
     }
   }
 
-  private async getRewardsInBlock(blockHash: string) {
+  private async getEventsInBlock(blockHash: string) {
     const allRecords = await this.api.query.system.events.at(blockHash);
     const timestamp = await this.api.query.timestamp.now.at(blockHash);
     const rewards = [];
+    const chills = [];
+    const kicks = [];
     for (let i = 0; i < allRecords.length; i++) {
         const { event } = allRecords[i];
         if (event.section.toLowerCase() == 'staking'
@@ -102,14 +110,25 @@ export class RpcListener {
         && (event.method.toLowerCase() === 'chilled' || event.method.toLowerCase() === 'chill')) {
           const stash = event.data[0].toString();
           console.log(event.toHuman());
+          const chillEvent = {
+            timestamp: parseInt(timestamp.toString()),
+            validator: event.data[0].toString(),
+          }
+          chills.push(chillEvent);
         }
         if (event.section.toLowerCase() === 'staking'
         && (event.method.toLowerCase() === 'kicked' || event.method.toLowerCase() === 'kick')) {
           const nominator = event.data[0].toString();
           const stash = event.data[1].toString();
           console.log(event.toHuman());
+          const kickEvent = {
+            timestamp: parseInt(timestamp.toString()),
+            validator: stash,
+            nominator: nominator,
+          }
+          kicks.push(kickEvent);
         }
     }
-    return rewards;
+    return { rewards, chills, kicks };
 }
 }

@@ -22,6 +22,12 @@ import {
   INominationRecord,
   IStalePayoutEvent,
   StalePayoutEventSchema,
+  IChillEvent,
+  IKickEvent,
+  ChillEventSchema,
+  KickEventSchema,
+  IOverSubscribeEvent,
+  OverSubscribeEventSchema,
 } from './schema';
 import AsyncLock from 'async-lock';
 import { logger } from '../logger';
@@ -41,6 +47,9 @@ export class DatabaseHandler {
   AllValidatorInactiveModel?: Model<IAllValidatorsInactive>
   NominationRecordModel?: Model<INominationRecord>
   StalePayoutEventModel?: Model<IStalePayoutEvent>
+  ChillEventModel?: Model<IChillEvent>
+  KickEventModel?: Model<IKickEvent>
+  OverSubscribeEventModel?: Model<IOverSubscribeEvent>
   lock: AsyncLock
   constructor() {
     this.lock = new AsyncLock({ maxPending: 1000 });
@@ -88,6 +97,9 @@ export class DatabaseHandler {
     this.AllValidatorInactiveModel = db.model<IAllValidatorsInactive>('AllInactive_' + dbName, AllValidatorsInactiveSchema, 'inactiveEvents');
     this.NominationRecordModel = db.model<INominationRecord>('NominationRecord_' + dbName, NominationRecordSchema, 'nominationRecords');
     this.StalePayoutEventModel = db.model<IStalePayoutEvent>('StalePayoutEvent_' + dbName, StalePayoutEventSchema, 'stalePayouts');
+    this.ChillEventModel = db.model<IChillEvent>('ChillEvent_' + dbName, ChillEventSchema, 'chillEvents');
+    this.KickEventModel = db.model<IKickEvent>('ChillEvent_' + dbName, KickEventSchema, 'kickEvents');
+    this.OverSubscribeEventModel = db.model<IOverSubscribeEvent>('OverSubscribeEvent_' + dbName, OverSubscribeEventSchema, 'overSubscribeEvents');
     db.on('error', console.error.bind(console, 'connection error:'));
     db.once('open', function () {
       logger.info('DB connected');
@@ -561,6 +573,40 @@ export class DatabaseHandler {
       //console.error(err);
     });
   }
+
+  async saveKickEvent(address: string, era: number, nominator: string, timestamp: number): Promise<void> {
+    await this.KickEventModel?.create({
+      address: address,
+      era: era,
+      nominator: nominator,
+      timestamp: timestamp
+    }).catch(() => {
+      // it is ok
+      //console.error(err);
+    });
+  }
+
+  async saveChillEvent(address: string, era: number, timestamp: number): Promise<void> {
+    await this.ChillEventModel?.create({
+      address: address,
+      era: era,
+      timestamp: timestamp
+    }).catch(() => {
+      // it is ok
+      //console.error(err);
+    });
+  }
+
+  async saveOverSubscribeEvent(address: string, era: number, nominators: string[]): Promise<void> {
+    await this.OverSubscribeEventModel?.create({
+      address: address,
+      era: era,
+      nominators: nominators
+    }).catch(() => {
+      // it is ok
+      //console.error(err);
+    });
+  };
 
   __validateNominationInfo(id: string, data: ValidatorCache): boolean {
     if (!Number.isInteger(data.era)) {

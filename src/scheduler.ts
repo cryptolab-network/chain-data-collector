@@ -82,10 +82,11 @@ export class Scheduler {
         nominatorCache = new Map<string, BalancedNominator>();
         validatorCache = new Map<string, ValidatorCache>();
         unclaimedEraCache = new Map<string, ValidatorUnclaimedEras>();
+        const nominatorThreshold = this.chainData.getNominatorThreshold();
         for (let i = 0; i < validatorWaitingInfo.validators.length; i++) {
           const validator = validatorWaitingInfo.validators[i];
           if (validator !== undefined && eraReward !== undefined) {
-            await this.makeValidatorInfoOfEra(validator, eraReward, activeEra, validatorCount);
+            await this.makeValidatorInfoOfEra(validator, eraReward, activeEra, validatorCount, nominatorThreshold);
           }
         }
         await this.updateValidators();
@@ -251,7 +252,7 @@ export class Scheduler {
   }
 
   private async makeValidatorInfoOfEra(validator: Validator, eraReward: string,
-    era: number, validatorCount: number) {
+    era: number, validatorCount: number, nominatorThreshold: number) {
     const stakerPoints = await this.chainData.getStakerPoints(validator.accountId);
     const activeEras = stakerPoints?.filter((point) => {
       return point.points.toNumber() > 0;
@@ -290,11 +291,31 @@ export class Scheduler {
         acc += n.balance.lockedBalance;
         return acc;
       }, BigInt(0)), validator.selfStake, validator.prefs.blocked);
+    validator.nominators.sort((a, b) => {
+      if (a.balance.lockedBalance > b.balance.lockedBalance) {
+        return -1;
+      } else if (a.balance.lockedBalance < b.balance.lockedBalance) {
+        return 1;
+      }
+      return 0;
+    });
+    if (validator.nominators.length > nominatorThreshold) {
+      this.saveOverSubscribers(validator.accountId, era, validator.nominators, nominatorThreshold);
+    }
     this.saveUnclaimedEras(validator.accountId, unclaimedEras?.map((era) => {
       return era.era.toNumber();
     }), era);
     this.saveValidatorNominationData(validator.accountId, data);
     this.saveNominators(validator);
+  }
+
+  private async saveOverSubscribers(validator: string, currentEra: number, nominators: BalancedNominator[], threshold: number) {
+    await this.db.saveOverSubscribeEvent(validator, currentEra, nominators.reduce((acc: string[], n, i) => {
+      if (i >= threshold) {
+        acc.push(n.address);
+      }
+      return acc;
+    }, []));
   }
 
   private async saveUnclaimedEras(validator: string, unclaimedEras: number[], currentEra: number) {

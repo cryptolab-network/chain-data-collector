@@ -472,6 +472,13 @@ class ChainData {
     return validatorCount.toNumber();
   }
 
+  getNominatorThreshold(): number {
+    if(!this.api) {
+      throw new ApiError();
+    }
+    return this.api.consts.staking.maxNominatorRewardedPerValidator.toNumber();
+  }
+
   async getUnappliedSlashOfEra(era: number): Promise<ValidatorSlash[]> {
     if(!this.api) {
       throw new ApiError();
