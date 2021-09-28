@@ -61,7 +61,7 @@ export class DatabaseHandler {
       url = url + `${name}:${pass}@`;
     }
     url += `${ip}:${port}/${dbName}`;
-
+    url += `?retryWrites=false`;
     let options = {};
     if (keys.MONGO_SSL === true) {
       const pem = fs.readFileSync(keys.MONGO_SSL_CA);
@@ -72,18 +72,16 @@ export class DatabaseHandler {
         useNewUrlParser: true,
         useUnifiedTopology: true,
         useCreateIndex: true,
-        poolSize: 10
+        poolSize: 10,
       }
     } else {
       options = {
         useNewUrlParser: true,
         useUnifiedTopology: true,
         useCreateIndex: true,
-        poolSize: 10
+        poolSize: 10,
       }
     }
-    logger.info(url);
-    logger.info(options);
     const db = await new Mongoose().createConnection(url, options);
     this.ValidatorModel = db.model<IValidator>('Validator_' + dbName, ValidatorSchema, 'validator');
     this.NominationModel = db.model<INomination>('Nomination_' + dbName, NominationSchema, 'nomination');
