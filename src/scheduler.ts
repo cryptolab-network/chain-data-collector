@@ -3,7 +3,7 @@ import { Cache } from './cacheRedis';
 import { OneKvNominatorSummary } from './oneKvData';
 import { DatabaseHandler } from "./db/database";
 import { CronJob } from 'cron';
-import { Validator, StakerPoint, NominatorSlash, BalancedNominator, ValidatorCache, ValidatorUnclaimedEras, CommissionChanged } from "./types";
+import { Validator, StakerPoint, NominatorSlash, BalancedNominator, ValidatorCache, ValidatorUnclaimedEras, CommissionChanged, IndividualExposure } from "./types";
 import { OneKvHandler } from "./oneKvData";
 import { RewardCalc } from "./rewardCalc";
 import { logger } from './logger';
@@ -291,16 +291,17 @@ export class Scheduler {
         acc += n.balance.lockedBalance;
         return acc;
       }, BigInt(0)), validator.selfStake, validator.prefs.blocked);
-    validator.nominators.sort((a, b) => {
-      if (a.balance.lockedBalance > b.balance.lockedBalance) {
+    validator.exposure.others.sort((a, b) => {
+      if (a.value > b.value) {
         return -1;
-      } else if (a.balance.lockedBalance < b.balance.lockedBalance) {
+      } else if (a.value < b.value) {
         return 1;
       }
       return 0;
     });
-    if (validator.nominators.length > nominatorThreshold) {
-      this.saveOverSubscribers(validator.accountId, era, validator.nominators, nominatorThreshold);
+    if (validator.exposure.others.length > nominatorThreshold) {
+      logger.debug('exposure over threshold: ' + validator.exposure.others.length);
+      this.saveOverSubscribers(validator.accountId, era, validator.exposure.others, nominatorThreshold);
     }
     this.saveUnclaimedEras(validator.accountId, unclaimedEras?.map((era) => {
       return era.era.toNumber();
@@ -309,10 +310,10 @@ export class Scheduler {
     this.saveNominators(validator);
   }
 
-  private async saveOverSubscribers(validator: string, currentEra: number, nominators: BalancedNominator[], threshold: number) {
-    await this.db.saveOverSubscribeEvent(validator, currentEra, nominators.reduce((acc: string[], n, i) => {
+  private async saveOverSubscribers(validator: string, currentEra: number, nominators: IndividualExposure[], threshold: number) {
+    await this.db.saveOverSubscribeEvent(validator, currentEra, nominators.reduce((acc: IndividualExposure[], n, i) => {
       if (i >= threshold) {
-        acc.push(n.address);
+        acc.push(n);
       }
       return acc;
     }, []));

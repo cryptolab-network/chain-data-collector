@@ -1,7 +1,7 @@
 import { Mongoose, Model } from 'mongoose';
 import {
   ValidatorDbSchema, NominationDbSchema, IdentityDbSchema, ValidatorEraReward,
-  BalancedNominator, ValidatorSlash, NominatorSlash, ValidatorCache, ValidatorUnclaimedEras, ValidatorCommissionChangeSchema, NominationRecordsDBSchema
+  BalancedNominator, ValidatorSlash, NominatorSlash, ValidatorCache, ValidatorUnclaimedEras, ValidatorCommissionChangeSchema, NominationRecordsDBSchema, IndividualExposure
 } from '../types';
 import {
   ValidatorSchema, NominationSchema, NominatorSchema,
@@ -595,7 +595,7 @@ export class DatabaseHandler {
     });
   }
 
-  async saveOverSubscribeEvent(address: string, era: number, nominators: string[]): Promise<void> {
+  async saveOverSubscribeEvent(address: string, era: number, nominators: IndividualExposure[]): Promise<void> {
     await this.OverSubscribeEventModel?.create({
       address: address,
       era: era,

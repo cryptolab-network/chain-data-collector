@@ -1,5 +1,5 @@
 import { model, Schema, Model, Document } from 'mongoose';
-import { Identity, IdentityDbSchema, StakerPoint, StatusChange, ValidatorTotalReward } from '../types';
+import { Identity, IdentityDbSchema, IndividualExposure, StakerPoint, StatusChange, ValidatorTotalReward } from '../types';
 export { ValidatorModel, ValidatorSchema, NominationSchema, NominatorSchema,
   NominationModel, ChainInfoSchema, ChainInfoModel, IChainInfo, UnclaimedEraInfoSchema, IUnclaimedEraInfo,
   IStashInfo, StashInfoSchema, IEraReward, IValidator, INomination, IValidatorSlash,
@@ -279,13 +279,16 @@ ChillEventSchema.index({'address': 1, 'era': 1, 'nominator': 1}, {unique: true})
 export const OverSubscribeEventSchema: Schema = new Schema({
   address: String,
   era: Number,
-  nominators: [String],
+  nominators: [{
+    who: String,
+    value: String
+  }],
 });
 
 export interface IOverSubscribeEvent extends Document {
   address: string;
   era: number;
-  nominators: string[];
+  nominators: IndividualExposure[];
 }
 
 OverSubscribeEventSchema.index({'address': 1, 'era': 1}, {unique: true});

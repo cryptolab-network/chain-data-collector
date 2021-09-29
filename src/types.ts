@@ -299,7 +299,7 @@ class Exposure {
   }
 }
 
-class IndividualExposure {
+export class IndividualExposure {
   who: string
   value: string | bigint
   constructor(who: string, value: string | bigint) {
