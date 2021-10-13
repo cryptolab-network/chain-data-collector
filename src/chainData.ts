@@ -357,20 +357,28 @@ class ChainData {
       }
       // eslint-disable-next-line
       const nominatorId = nominator[0].toHuman()?.toString()!;
-      promises.push(this.api?.derive.balances.all(nominatorId).then((balance) => {
-        // const balance = await this.api?.derive.balances.all(nominatorId);
-        const _balance = new Balance(balance.freeBalance.toBigInt(), balance.lockedBalance.toBigInt());
-        const targets: string[] = [];
+      promises.push(this.api?.query.system.account(nominatorId).then((account: any) => {
         try {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          nominator[1].unwrap().targets.forEach((target: any) => {
-            targets.push(target.toString());
-          });
-          balancedNominators.push(new BalancedNominator(nominatorId, targets, _balance));
-        } catch (err) {
-          logger.error(err);
-          logger.debug(nominator.toString());
-          balancedNominators.push(new BalancedNominator(nominatorId, targets, _balance));
+          // const account = await this.api?.query.system.account(nominatorId);
+          if (account !== undefined) {
+            const balance = (account.toJSON() as any).data;
+            console.log(balance);
+            const _balance = new Balance(balance.free.toString(), balance.miscFrozen.toString());
+            const targets: string[] = [];
+            try {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              nominator[1].unwrap().targets.forEach((target: any) => {
+                targets.push(target.toString());
+              });
+              balancedNominators.push(new BalancedNominator(nominatorId, targets, _balance));
+            } catch (err) {
+              logger.error(err);
+              logger.debug(nominator.toString());
+              balancedNominators.push(new BalancedNominator(nominatorId, targets, _balance));
+            }
+          }
+        } catch (e) {
+          logger.error(e);
         }
       }));
       if (i % 10 === 0) {
