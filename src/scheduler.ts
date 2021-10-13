@@ -112,7 +112,7 @@ export class Scheduler {
         console.timeEnd(`[${this.name}] Update Cache Data`);
         await this.checkAllInactive(validatorWaitingInfo.validators, activeEra);
         logger.info(`[${this.name}] scheduler ends`);
-      } catch (err) {
+      } catch (err: any) {
         logger.error(err);
         logger.error('schedule retrieving data error');
       }
@@ -244,7 +244,7 @@ export class Scheduler {
         await this.updateHistoricalAPY();
       }
       await this.updateUnappliedSlashes(era);
-    } catch(e) {
+    } catch(e: any) {
       logger.error(e);
     } finally {
       await this.db.saveActiveEra(era);

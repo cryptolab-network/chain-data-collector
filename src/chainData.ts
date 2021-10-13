@@ -145,7 +145,7 @@ class ChainData {
     }
     const eraRewardDist = await this.api?.query.staking.erasRewardPoints(era);
     const individuals = new Map<string, number>();
-    eraRewardDist.individual.forEach((point, id)=>{
+    eraRewardDist.individual.forEach((point: any, id: any)=>{
       individuals.set(id.toString(), point.toNumber());
     });
     return new EraRewardDist(era, eraRewardDist.total.toNumber(), individuals);
@@ -166,7 +166,7 @@ class ChainData {
         }
       }
       return output;
-    } catch(err) {
+    } catch(err: any) {
       throw new Error(err);
     }
   }
@@ -362,7 +362,6 @@ class ChainData {
           // const account = await this.api?.query.system.account(nominatorId);
           if (account !== undefined) {
             const balance = (account.toJSON() as any).data;
-            console.log(balance);
             const _balance = new Balance(balance.free.toString(), balance.miscFrozen.toString());
             const targets: string[] = [];
             try {
