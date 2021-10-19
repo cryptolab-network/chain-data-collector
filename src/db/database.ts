@@ -150,7 +150,7 @@ export class DatabaseHandler {
           as: 'info'
         }
       }
-    ]).exec() as unknown as ValidatorDbSchema;
+    ]).allowDiskUse(true).exec() as unknown as ValidatorDbSchema;
 
     return validator;
   }
@@ -165,7 +165,7 @@ export class DatabaseHandler {
           as: 'info'
         }
       }
-    ]).exec() as unknown as ValidatorDbSchema[];
+    ]).allowDiskUse(true).exec() as unknown as ValidatorDbSchema[];
 
     return validator;
   }
@@ -196,7 +196,7 @@ export class DatabaseHandler {
       },
       { $skip: page * size },
       { $limit: size }
-    ]).exec();
+    ]).allowDiskUse(true).exec();
 
     const validators = nominations.map((nomination: {
       data: {
