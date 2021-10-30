@@ -74,7 +74,7 @@ export class DatabaseHandler {
       url = url + `${name}:${pass}@`;
     }
     url += `${ip}:${port}/${dbName}`;
-    url += `?retryWrites=false`;
+    url += `?authSource=admin`;
     let options = {};
     if (keys.MONGO_SSL === true) {
       const pem = fs.readFileSync(keys.MONGO_SSL_CA);
