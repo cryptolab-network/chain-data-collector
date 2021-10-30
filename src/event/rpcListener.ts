@@ -4,22 +4,25 @@ import { DatabaseHandler } from "../db/database";
 // eslint-disable-next-line
 const divide = require('divide-bigint');
 import { logger } from '../logger';
+import { NominationRecordsDBSchema } from "../types";
 
 export class RpcListener {
   api: ApiPromise
   db: DatabaseHandler
+  userDb: DatabaseHandler
   isFetchingRewards: boolean
   decimals: number
   firstTime: boolean
   currentEra: number
   chain: string
-  constructor(chainData: ChainData, db: DatabaseHandler, decimals: number, chain: string) {
+  constructor(chainData: ChainData, db: DatabaseHandler, userDb: DatabaseHandler, decimals: number, chain: string) {
     if(!chainData.api) {
       throw new Error("chainData API is not initialized");
     }
     this.api = chainData.api;
     this.isFetchingRewards = false;
     this.db = db;
+    this.userDb = userDb;
     this.decimals = decimals;
     this.firstTime = true;
     this.currentEra = 0;
@@ -40,11 +43,12 @@ export class RpcListener {
     if (blockNumber % 300 == 0 || this.firstTime === true) {
       this.firstTime = false;
       logger.info('ProcessRewardUpToBlock ' + blockNumber);
-        this.processRewardsUpToBlock(blockNumber - 1);
+      const cryptoLabUsers = await this.userDb.getAllNominationRecords();
+      this.processRewardsUpToBlock(blockNumber - 1, cryptoLabUsers);
     }
   }
 
-  private async processRewardsUpToBlock(blockNumber: number) {
+  private async processRewardsUpToBlock(blockNumber: number, cryptoLabUsers: NominationRecordsDBSchema[]) {
     if (this.isFetchingRewards) { 
       logger.info('Fetching rewards...');
       return; 
@@ -66,14 +70,26 @@ export class RpcListener {
             }
             const {rewards, chills, kicks} = await this.getEventsInBlock(blockHash.toString());
             for (const reward of rewards) {
+              let writeToUserMapping = false;
+              if (cryptoLabUsers.findIndex((v) => v.stash === reward.targetStashAddress) >= 0) {
+                writeToUserMapping = true;
+              }
               await this.db.saveRewards(reward.targetStashAddress, era.unwrap().index.toNumber(),
-                divide(BigInt(reward.amount), BigInt(this.decimals)), reward.timestamp);
+                divide(BigInt(reward.amount), BigInt(this.decimals)), reward.timestamp, writeToUserMapping);
             }
             for (const chill of chills) {
-              await this.db.saveChillEvent(chill.validator, era.unwrap().index.toNumber(), chill.timestamp);
+              let writeToUserMapping = false;
+              if (cryptoLabUsers.findIndex((v) => v.validators.findIndex((a) => a === chill.validator) >= 0) >= 0) {
+                writeToUserMapping = true;
+              }
+              await this.db.saveChillEvent(chill.validator, era.unwrap().index.toNumber(), chill.timestamp, writeToUserMapping);
             }
             for (const kick of kicks) {
-              await this.db.saveKickEvent(kick.validator, era.unwrap().index.toNumber(), kick.nominator, kick.timestamp);
+              let writeToUserMapping = false;
+              if (cryptoLabUsers.findIndex((v) => v.validators.findIndex((a) => a === kick.validator) >= 0) >= 0) {
+                writeToUserMapping = true;
+              }
+              await this.db.saveKickEvent(kick.validator, era.unwrap().index.toNumber(), kick.nominator, kick.timestamp, writeToUserMapping);
             }
             await this.db.saveLastFetchedBlock(i);
           } catch (error) {

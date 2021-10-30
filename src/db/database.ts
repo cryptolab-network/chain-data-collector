@@ -1,4 +1,4 @@
-import { Mongoose, Model } from 'mongoose';
+import { Mongoose, Model, Types } from 'mongoose';
 import {
   ValidatorDbSchema, NominationDbSchema, IdentityDbSchema, ValidatorEraReward,
   BalancedNominator, ValidatorSlash, NominatorSlash, ValidatorCache, ValidatorUnclaimedEras, ValidatorCommissionChangeSchema, NominationRecordsDBSchema, IndividualExposure
@@ -28,11 +28,23 @@ import {
   KickEventSchema,
   IOverSubscribeEvent,
   OverSubscribeEventSchema,
+  IUserEventMapping,
+  UserEventMappingSchema,
 } from './schema';
 import AsyncLock from 'async-lock';
 import { logger } from '../logger';
 import { keys } from '../config/keys';
 import fs from 'fs';
+
+const EventTypes = {
+  payout: 0,
+  commissionChange: 1,
+  kick: 2,
+  chill: 3,
+  inactive: 4,
+  stalePayouts: 5,
+  overSubsribe: 6,
+};
 
 export class DatabaseHandler {
   ValidatorModel?: Model<IValidator>
@@ -50,6 +62,7 @@ export class DatabaseHandler {
   ChillEventModel?: Model<IChillEvent>
   KickEventModel?: Model<IKickEvent>
   OverSubscribeEventModel?: Model<IOverSubscribeEvent>
+  UserEventMappingModel?: Model<IUserEventMapping>
   lock: AsyncLock
   constructor() {
     this.lock = new AsyncLock({ maxPending: 1000 });
@@ -98,6 +111,7 @@ export class DatabaseHandler {
     this.ChillEventModel = db.model<IChillEvent>('ChillEvent_' + dbName, ChillEventSchema, 'chillEvents');
     this.KickEventModel = db.model<IKickEvent>('ChillEvent_' + dbName, KickEventSchema, 'kickEvents');
     this.OverSubscribeEventModel = db.model<IOverSubscribeEvent>('OverSubscribeEvent_' + dbName, OverSubscribeEventSchema, 'overSubscribeEvents');
+    this.UserEventMappingModel = db.model<IUserEventMapping>('UserEvebtMapping_' + dbName, UserEventMappingSchema, 'userEventMapping');
     db.on('error', console.error.bind(console, 'connection error:'));
     db.once('open', function () {
       logger.info('DB connected');
@@ -266,7 +280,7 @@ export class DatabaseHandler {
     }
   }
 
-  async saveMultipleValidatorNominationData(data: ValidatorCache[]): Promise<void> {
+  async saveMultipleValidatorNominationData(data: ValidatorCache[], cryptoLabUsers: NominationRecordsDBSchema[]): Promise<void> {
     try {
       // validator
       let script: unknown[] = [];
@@ -303,7 +317,13 @@ export class DatabaseHandler {
             validator.commissionChanged.commissionFrom,
             validator.commissionChanged.commissionTo,
           );
-          await this.ValidatorCommissionModel?.create(nData.toObject()).catch((err: Error) => logger.error(err));
+          const result = await this.ValidatorCommissionModel?.create(nData.toObject()).catch((err: Error) => logger.error(err));
+          if (result !== undefined) {
+            const index = cryptoLabUsers.findIndex((v) => v.validators.findIndex((a) => a === validator.id) >= 0);
+            if (index >= 0) {
+              await this.saveUserEventToMapping(cryptoLabUsers[index].stash, result.id, EventTypes.commissionChange, validator.era);
+            }
+          }
         }
       });
       // nomination
@@ -535,8 +555,8 @@ export class DatabaseHandler {
   }
 
 
-  async saveRewards(stash: string, era: number, amount: number, timestamp: number): Promise<void> {
-    await this.StashInfoModel?.create({
+  async saveRewards(stash: string, era: number, amount: number, timestamp: number, writeToUserMapping: boolean): Promise<void> {
+    const result = await this.StashInfoModel?.create({
       stash: stash,
       era: era,
       amount: amount,
@@ -545,6 +565,9 @@ export class DatabaseHandler {
       // it is ok
       //console.error(err);
     });
+    if (writeToUserMapping === true && result !== undefined) {
+      await this.saveUserEventToMapping(stash, result.id, EventTypes.payout, era);
+    }
   }
 
   async saveStalePayoutEvents(address: string, era: number, unclaimedPayouts: number[]): Promise<void> {
@@ -562,18 +585,21 @@ export class DatabaseHandler {
     return records;
   }
 
-  async saveAllInactiveEvent(address: string, era: number): Promise<void> {
-    await this.AllValidatorInactiveModel?.create({
+  async saveAllInactiveEvent(address: string, era: number, writeToUserMapping: boolean): Promise<void> {
+    const result = await this.AllValidatorInactiveModel?.create({
       address: address,
       era: era
     }).catch(() => {
       // it is ok
       //console.error(err);
     });
+    if (writeToUserMapping === true && result !== undefined) {
+      await this.saveUserEventToMapping(address, result.id, EventTypes.inactive, era);
+    }
   }
 
-  async saveKickEvent(address: string, era: number, nominator: string, timestamp: number): Promise<void> {
-    await this.KickEventModel?.create({
+  async saveKickEvent(address: string, era: number, nominator: string, timestamp: number, writeToUserMapping: boolean): Promise<void> {
+    const result = await this.KickEventModel?.create({
       address: address,
       era: era,
       nominator: nominator,
@@ -582,10 +608,13 @@ export class DatabaseHandler {
       // it is ok
       //console.error(err);
     });
+    if (writeToUserMapping === true && result !== undefined) {
+      await this.saveUserEventToMapping(address, result.id, EventTypes.kick, era);
+    }
   }
 
-  async saveChillEvent(address: string, era: number, timestamp: number): Promise<void> {
-    await this.ChillEventModel?.create({
+  async saveChillEvent(address: string, era: number, timestamp: number, writeToUserMapping: boolean): Promise<void> {
+    const result = await this.ChillEventModel?.create({
       address: address,
       era: era,
       timestamp: timestamp
@@ -593,10 +622,13 @@ export class DatabaseHandler {
       // it is ok
       //console.error(err);
     });
+    if (writeToUserMapping === true && result !== undefined) {
+      await this.saveUserEventToMapping(address, result.id, EventTypes.chill, era);
+    }
   }
 
-  async saveOverSubscribeEvent(address: string, era: number, nominators: IndividualExposure[]): Promise<void> {
-    await this.OverSubscribeEventModel?.create({
+  async saveOverSubscribeEvent(address: string, era: number, nominators: IndividualExposure[], writeToUserMapping: boolean): Promise<void> {
+    const result = await this.OverSubscribeEventModel?.create({
       address: address,
       era: era,
       nominators: nominators
@@ -604,7 +636,23 @@ export class DatabaseHandler {
       // it is ok
       //console.error(err);
     });
-  };
+    if (writeToUserMapping === true && result !== undefined) {
+      nominators.forEach(async (n) => {
+        await this.saveUserEventToMapping(n.who, result.id, EventTypes.overSubsribe, era);
+      });
+    }
+  }
+
+  async saveUserEventToMapping(address: string, objectId: Types.ObjectId, type: number, era: number): Promise<void> {
+    this.UserEventMappingModel?.create({
+      address: address,
+      mapping: objectId,
+      type: type,
+      era: era,
+    }).catch(() => {
+      // it is ok
+    });
+  }
 
   __validateNominationInfo(id: string, data: ValidatorCache): boolean {
     if (!Number.isInteger(data.era)) {

@@ -55,9 +55,11 @@ async function initKusama(bot?: SlackBot) {
     const cacheData = new Cache('KSM', keys.REDIS_URL, keys.REDIS_PORT);
     const db = new DatabaseHandler();
     await db.connect(keys.MONGO_ACCOUNT, keys.MONGO_PASSWORD, keys.MONGO_URL, keys.MONGO_PORT, keys.MONGO_DBNAME);
-    const rpcListener = new RpcListener(chainData, db, KUSAMA_DECIMAL, 'KSM');
+    const userDb = new DatabaseHandler();
+    await userDb.connect(keys.MONGO_ACCOUNT, keys.MONGO_PASSWORD, keys.MONGO_URL, keys.MONGO_PORT, 'users');
+    const rpcListener = new RpcListener(chainData, db, userDb, KUSAMA_DECIMAL, 'KSM');
     rpcListener.start();
-    const scheduler = new Scheduler('KUSAMA', chainData, db, cacheData);
+    const scheduler = new Scheduler('KUSAMA', chainData, db, userDb, cacheData);
     scheduler.start();
   } catch (err) {
     logger.error(err);
@@ -71,9 +73,11 @@ async function initPolkadot(bot?: SlackBot) {
     const cacheData = new Cache('DOT', keys.REDIS_URL, keys.REDIS_PORT);
     const db = new DatabaseHandler();
     await db.connect(keys.MONGO_ACCOUNT, keys.MONGO_PASSWORD, keys.MONGO_URL, keys.MONGO_PORT, keys.MONGO_DBNAME_POLKADOT);
-    const rpcListener = new RpcListener(chainData, db, POLKADOT_DECIMAL, 'DOT');
+    const userDb = new DatabaseHandler();
+    await userDb.connect(keys.MONGO_ACCOUNT, keys.MONGO_PASSWORD, keys.MONGO_URL, keys.MONGO_PORT, 'users');
+    const rpcListener = new RpcListener(chainData, db, userDb, POLKADOT_DECIMAL, 'DOT');
     rpcListener.start();
-    const polkadotScheduler = new Scheduler('POLKADOT', chainData, db, cacheData);
+    const polkadotScheduler = new Scheduler('POLKADOT', chainData, db, userDb, cacheData);
     polkadotScheduler.start();
   } catch (err) {
     logger.error(err);
@@ -88,9 +92,11 @@ async function initWestend(bot?: SlackBot) {
     const cacheData = new Cache('WND', keys.REDIS_URL, keys.REDIS_PORT);
     const db = new DatabaseHandler();
     await db.connect(keys.MONGO_ACCOUNT, keys.MONGO_PASSWORD, keys.MONGO_URL, keys.MONGO_PORT, keys.MONGO_DBNAME_WESTEND);
-    const rpcListener = new RpcListener(chainData, db, KUSAMA_DECIMAL, 'WND');
+    const userDb = new DatabaseHandler();
+    await userDb.connect(keys.MONGO_ACCOUNT, keys.MONGO_PASSWORD, keys.MONGO_URL, keys.MONGO_PORT, 'users');
+    const rpcListener = new RpcListener(chainData, db, userDb, KUSAMA_DECIMAL, 'WND');
     rpcListener.start();
-    const scheduler = new Scheduler('WND', chainData, db, cacheData);
+    const scheduler = new Scheduler('WND', chainData, db, userDb, cacheData);
     scheduler.start();
   } catch (err) {
     logger.error(err);

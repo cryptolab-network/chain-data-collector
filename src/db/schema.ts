@@ -1,4 +1,4 @@
-import { model, Schema, Model, Document } from 'mongoose';
+import { model, Schema, Model, Document, Types } from 'mongoose';
 import { Identity, IdentityDbSchema, IndividualExposure, StakerPoint, StatusChange, ValidatorTotalReward } from '../types';
 export { ValidatorModel, ValidatorSchema, NominationSchema, NominatorSchema,
   NominationModel, ChainInfoSchema, ChainInfoModel, IChainInfo, UnclaimedEraInfoSchema, IUnclaimedEraInfo,
@@ -293,3 +293,18 @@ export interface IOverSubscribeEvent extends Document {
 
 OverSubscribeEventSchema.index({'address': 1, 'era': 1}, {unique: true});
 
+export const UserEventMappingSchema: Schema = new Schema({
+  mapping: Types.ObjectId,
+  address: String,
+  type: Number,
+  era: Number,
+});
+
+export interface IUserEventMapping extends Document {
+  mapping: Types.ObjectId;
+  address: string;
+  type: number;
+  era: number;
+}
+
+UserEventMappingSchema.index({'address': 1, 'mapping': 1}, {unique: true});

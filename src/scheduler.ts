@@ -3,7 +3,7 @@ import { Cache } from './cacheRedis';
 import { OneKvNominatorSummary } from './oneKvData';
 import { DatabaseHandler } from "./db/database";
 import { CronJob } from 'cron';
-import { Validator, StakerPoint, NominatorSlash, BalancedNominator, ValidatorCache, ValidatorUnclaimedEras, CommissionChanged, IndividualExposure } from "./types";
+import { Validator, StakerPoint, NominatorSlash, BalancedNominator, ValidatorCache, ValidatorUnclaimedEras, CommissionChanged, IndividualExposure, NominationRecordsDBSchema } from "./types";
 import { OneKvHandler } from "./oneKvData";
 import { RewardCalc } from "./rewardCalc";
 import { logger } from './logger';
@@ -19,13 +19,15 @@ export class Scheduler {
   chainData: ChainData
   cacheData: Cache
   db: DatabaseHandler
+  userDb: DatabaseHandler
   isCaching: boolean
   oneKvHandler: OneKvHandler | undefined
   name: string
-  constructor(name: string, chainData: ChainData, db: DatabaseHandler, cacheData: Cache) {
+  constructor(name: string, chainData: ChainData, db: DatabaseHandler, userDb: DatabaseHandler, cacheData: Cache) {
     this.chainData = chainData;
     this.cacheData = cacheData;
     this.db = db;
+    this.userDb = userDb;
     this.isCaching = false;
     if (name === 'POLKADOT') {
       this.oneKvHandler = new OneKvHandler(this.chainData, this.cacheData, this.db, keys.API_1KV_POLKADOT);
@@ -67,6 +69,7 @@ export class Scheduler {
       this.isCaching = true;
       try {
         logger.info(`${this.name} scheduler starts`);
+        const cryptoLabUsers = await this.userDb.getAllNominationRecords();
         console.time(`[${this.name}] Update active era`);
         await this.updateActiveEra();
         console.timeEnd(`[${this.name}] Update active era`);
@@ -86,10 +89,10 @@ export class Scheduler {
         for (let i = 0; i < validatorWaitingInfo.validators.length; i++) {
           const validator = validatorWaitingInfo.validators[i];
           if (validator !== undefined && eraReward !== undefined) {
-            await this.makeValidatorInfoOfEra(validator, eraReward, activeEra, validatorCount, nominatorThreshold);
+            await this.makeValidatorInfoOfEra(validator, eraReward, activeEra, validatorCount, nominatorThreshold, cryptoLabUsers);
           }
         }
-        await this.updateValidators();
+        await this.updateValidators(cryptoLabUsers);
         await this.updateUnclaimedEraInfo();
         console.timeEnd(`[${this.name}] Write Validator Data`);
         console.time(`[${this.name}] Write Nominator Data`);
@@ -110,7 +113,7 @@ export class Scheduler {
         logger.debug('length ' + validatorWaitingInfo.validators.length);
         await this.cacheOneKVInfo(validatorWaitingInfo.validators);
         console.timeEnd(`[${this.name}] Update Cache Data`);
-        await this.checkAllInactive(validatorWaitingInfo.validators, activeEra);
+        await this.checkAllInactive(validatorWaitingInfo.validators, activeEra, cryptoLabUsers);
         logger.info(`[${this.name}] scheduler ends`);
       } catch (err: any) {
         logger.error(err);
@@ -121,14 +124,14 @@ export class Scheduler {
     job.start();
   }
 
-  private async checkAllInactive(validators: (Validator | undefined)[], era: number) {
+  private async checkAllInactive(validators: (Validator | undefined)[], era: number, cryptoLabUsers: NominationRecordsDBSchema[] ) {
     const validatorMap = validators.reduce((acc, v) => {
       if (v !== undefined) {
         acc.set(v.accountId, v);
       }
       return acc;
     }, new Map<string, Validator>());
-    const records = await this.db.getAllNominationRecords()
+    const records = await this.userDb.getAllNominationRecords()
     records.forEach(async (nr) => {
       let allInactive = true;
       nr.validators.forEach((v) => {
@@ -139,7 +142,11 @@ export class Scheduler {
       });
       if (allInactive === true) {
         // write event to db
-        await this.db.saveAllInactiveEvent(nr.stash, era);
+        let writeToUserMapping = false;
+        if (cryptoLabUsers.findIndex((v) => v.stash === nr.stash) >= 0) {
+          writeToUserMapping = true;
+        }
+        await this.db.saveAllInactiveEvent(nr.stash, era, writeToUserMapping);
       }
     });
   }
@@ -198,7 +205,7 @@ export class Scheduler {
     }
   }
 
-  private async updateValidators(): Promise<void> {
+  private async updateValidators(cryptoLabUsers: NominationRecordsDBSchema[]): Promise<void> {
     let tmp = new Array<ValidatorCache>();
     for (const [, v] of validatorCache) {
       if (v) {
@@ -215,14 +222,14 @@ export class Scheduler {
         }
         if (tmp.length >= 100) {
           logger.debug(`write ${tmp.length} rows to validator db`);
-          await this.db.saveMultipleValidatorNominationData(tmp);
+          await this.db.saveMultipleValidatorNominationData(tmp, cryptoLabUsers);
           tmp = new Array<ValidatorCache>();
         }
       }
     }
     if (tmp.length > 0) {
       logger.debug(`write ${tmp.length} rows to validator db`);
-      await this.db.saveMultipleValidatorNominationData(tmp);
+      await this.db.saveMultipleValidatorNominationData(tmp, cryptoLabUsers);
     }
   }
 
@@ -252,7 +259,7 @@ export class Scheduler {
   }
 
   private async makeValidatorInfoOfEra(validator: Validator, eraReward: string,
-    era: number, validatorCount: number, nominatorThreshold: number) {
+    era: number, validatorCount: number, nominatorThreshold: number, cryptoLabUsers: NominationRecordsDBSchema[]) {
     const stakerPoints = await this.chainData.getStakerPoints(validator.accountId);
     const activeEras = stakerPoints?.filter((point) => {
       return point.points.toNumber() > 0;
@@ -301,7 +308,7 @@ export class Scheduler {
     });
     if (validator.exposure.others.length > nominatorThreshold) {
       logger.debug('exposure over threshold: ' + validator.exposure.others.length);
-      this.saveOverSubscribers(validator.accountId, era, validator.exposure.others, nominatorThreshold);
+      this.saveOverSubscribers(validator.accountId, era, validator.exposure.others, nominatorThreshold, cryptoLabUsers);
     }
     this.saveUnclaimedEras(validator.accountId, unclaimedEras?.map((era) => {
       return era.era.toNumber();
@@ -310,13 +317,17 @@ export class Scheduler {
     this.saveNominators(validator);
   }
 
-  private async saveOverSubscribers(validator: string, currentEra: number, nominators: IndividualExposure[], threshold: number) {
+  private async saveOverSubscribers(validator: string, currentEra: number, nominators: IndividualExposure[], threshold: number, cryptoLabUsers: NominationRecordsDBSchema[]) {
+    let writeToUserMapping = false;
+    if (cryptoLabUsers.findIndex((v) => v.validators.findIndex((a) => a === validator) >= 0) >= 0) {
+      writeToUserMapping = true;
+    }
     await this.db.saveOverSubscribeEvent(validator, currentEra, nominators.reduce((acc: IndividualExposure[], n, i) => {
       if (i >= threshold) {
         acc.push(n);
       }
       return acc;
-    }, []));
+    }, []), writeToUserMapping);
   }
 
   private async saveUnclaimedEras(validator: string, unclaimedEras: number[], currentEra: number) {
