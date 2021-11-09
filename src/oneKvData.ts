@@ -267,7 +267,7 @@ export class OneKvHandler {
       const promises = valid.map(async (candidate) => {
         const validator = validators.find(v => v?.accountId === candidate.stash);
         if(validator === undefined) {
-          logger.warn(`cannot find ${candidate.stash} in validator set`);
+          logger.debug(`cannot find ${candidate.stash} in validator set`);
           return;
         }
         candidate.detail = validator;

@@ -327,7 +327,11 @@ export class DatabaseHandler {
             validator.commissionChanged.commissionFrom,
             validator.commissionChanged.commissionTo,
           );
-          const result = await this.ValidatorCommissionModel?.create(nData.toObject()).catch((err: Error) => logger.debug(err));
+          const result = await this.ValidatorCommissionModel?.create(nData.toObject()).catch((err: Error) => {
+            if (!err.message.indexOf("duplicate")) {
+              logger.error(err);
+            }
+          });
           if (result !== undefined) {
             const index = cryptoLabUsers.findIndex((v) => v.validators.findIndex((a) => a === validator.id) >= 0);
             if (index >= 0) {
