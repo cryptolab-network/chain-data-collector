@@ -178,6 +178,16 @@ export class DatabaseHandler {
           foreignField: 'validator',
           as: 'info'
         }
+      }, {
+        $project: {
+          id: 1,
+          blocked: 1,
+          identity: 1,
+          stakerPoints: 1,
+          statusChange: 1,
+          rewards: 1,
+          info: { $slice: ["$info", -128] }
+        }
       }
     ]).allowDiskUse(true).exec() as unknown as ValidatorDbSchema[];
 
@@ -317,7 +327,7 @@ export class DatabaseHandler {
             validator.commissionChanged.commissionFrom,
             validator.commissionChanged.commissionTo,
           );
-          const result = await this.ValidatorCommissionModel?.create(nData.toObject()).catch((err: Error) => logger.error(err));
+          const result = await this.ValidatorCommissionModel?.create(nData.toObject()).catch((err: Error) => logger.debug(err));
           if (result !== undefined) {
             const index = cryptoLabUsers.findIndex((v) => v.validators.findIndex((a) => a === validator.id) >= 0);
             if (index >= 0) {
