@@ -43,7 +43,7 @@ const POLKADOT_DECIMAL = 10000000000;
       initKusama(bot);
       initPolkadot(bot);
     }
-  } catch (err) {
+  } catch (err: any) {
     logger.error(err);
   }
 })();
@@ -62,7 +62,7 @@ async function initKusama(bot?: SlackBot) {
     const scheduler = new Scheduler('KUSAMA', chainData, db, userDb, cacheData);
     scheduler.start();
   } catch (err) {
-    logger.error(err);
+    logger.error(err as Error);
   }
 }
 
@@ -79,7 +79,7 @@ async function initPolkadot(bot?: SlackBot) {
     rpcListener.start();
     const polkadotScheduler = new Scheduler('POLKADOT', chainData, db, userDb, cacheData);
     polkadotScheduler.start();
-  } catch (err) {
+  } catch (err: any) {
     logger.error(err);
   }
 }
@@ -98,7 +98,7 @@ async function initWestend(bot?: SlackBot) {
     rpcListener.start();
     const scheduler = new Scheduler('WND', chainData, db, userDb, cacheData);
     scheduler.start();
-  } catch (err) {
+  } catch (err: any) {
     logger.error(err);
   }
 }

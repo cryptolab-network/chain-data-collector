@@ -131,6 +131,7 @@ export class Scheduler {
       }
       return acc;
     }, new Map<string, Validator>());
+
     const records = await this.userDb.getAllNominationRecords()
     records.forEach(async (nr) => {
       let allInactive = true;

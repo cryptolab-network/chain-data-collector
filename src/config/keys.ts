@@ -8,5 +8,5 @@ const config = () => {
     return require('./dev');
   }
 }
-
+console.log(config());
 export const keys = config();
