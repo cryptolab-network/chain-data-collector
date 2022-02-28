@@ -284,7 +284,7 @@ export class DatabaseHandler {
       }
       return true;
     } catch (err) {
-      logger.error(err);
+      logger.error(err as Error);
       logger.error(`id = ${id}`);
       return false;
     }
@@ -358,7 +358,7 @@ export class DatabaseHandler {
       });
       await this.NominationModel?.bulkWrite(script);
     } catch (err) {
-      logger.error(err);
+      logger.error(err as Error);
     }
 
   }
@@ -384,7 +384,7 @@ export class DatabaseHandler {
       });
       await this.NominatorModel?.bulkWrite(script);
     } catch (err) {
-      logger.error(err);
+      logger.error(err as Error);
     }
   }
 
@@ -496,7 +496,7 @@ export class DatabaseHandler {
       });
       await this.UnclaimedEraInfoModel?.bulkWrite(script);
     } catch (err) {
-      logger.error(err);
+      logger.error(err as Error);
     }
   }
 

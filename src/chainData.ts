@@ -1,5 +1,7 @@
 import { ApiPromise, WsProvider } from '@polkadot/api';
 import { DeriveAccountRegistration, DeriveStakerPoints } from '@polkadot/api-derive/types';
+import type { Option, u32 } from '@polkadot/types';
+import type { ActiveEraInfo, EraRewardPoints, Nominations, UnappliedSlash } from '@polkadot/types/interfaces';
 import { Identity, BalancedNominator, Balance, Validator, EraRewardDist, ValidatorSlash, AllValidatorNominator } from './types';
 import { logger } from './logger';
 import { Vec } from '@polkadot/types';
@@ -48,7 +50,7 @@ class ChainData {
 
   async getActiveEraIndex(): Promise<number> {
     if(this.api) {
-      const activeEra = await this.api.query.staking.activeEra();
+      const activeEra = await this.api.query.staking.activeEra<Option<ActiveEraInfo>>();
       if(activeEra !== undefined) {
         if (activeEra.isNone) {
           logger.warn(`NO ACTIVE ERA: ${activeEra.toString()}`);
@@ -93,10 +95,11 @@ class ChainData {
       if (blockHash === undefined) {
         throw new Error('Failed to get the block hash');
       }
-      const testEra = await this.api?.query.staking.activeEra.at(blockHash);
-      if (testEra === undefined) {
+      const apiAt = await this.api?.at(blockHash);
+      if (apiAt === undefined) {
         throw new Error(`Failed to get the active era @ ${blockHash}`);
       }
+      const testEra = await apiAt.query.staking.activeEra<Option<ActiveEraInfo>>();
       const testIndex = testEra.unwrap().index.toNumber();
       if (era == testIndex) {
         return blockHash.toString();
@@ -113,7 +116,7 @@ class ChainData {
   }
 
   getValidatorsByEraBlockHash = async (eraBlockHash: string): Promise<Vec<ValidatorId>> => {
-    const validators = await this.api?.query.session.validators.at(eraBlockHash);
+    const validators = await this.api?.query.session.validators.at<Vec<ValidatorId>>(eraBlockHash);
     if(validators) {
       return validators;
     } else {
@@ -143,7 +146,7 @@ class ChainData {
     if(!this.api) {
       throw new ApiError();
     }
-    const eraRewardDist = await this.api?.query.staking.erasRewardPoints(era);
+    const eraRewardDist = await this.api?.query.staking.erasRewardPoints<EraRewardPoints>(era);
     const individuals = new Map<string, number>();
     eraRewardDist.individual.forEach((point: any, id: any)=>{
       individuals.set(id.toString(), point.toNumber());
@@ -188,7 +191,7 @@ class ChainData {
       waitingInfo,
       nominators,
     ] = await Promise.all([
-      this.api.query.session.validators(),
+      this.api.query.session.validators<Vec<ValidatorId>>(),
       this.api.derive.staking.nextElected(),
       this.api.derive.staking.waitingInfo({
         withLedger: true,
@@ -371,13 +374,13 @@ class ChainData {
               });
               balancedNominators.push(new BalancedNominator(nominatorId, targets, _balance));
             } catch (err) {
-              logger.error(err);
+              logger.error(err as Error);
               logger.debug(nominator.toString());
               balancedNominators.push(new BalancedNominator(nominatorId, targets, _balance));
             }
           }
         } catch (e) {
-          logger.error(e);
+          logger.error(e as Error);
         }
       }));
       if (i % 10 === 0) {
@@ -457,12 +460,12 @@ class ChainData {
           const _balance = new Balance(balance.freeBalance.toBigInt(), balance.lockedBalance.toBigInt());
           let targets: string[] = [];
           try {
-            nominator[1].unwrap().targets.forEach((target)=>{
+            (nominator[1] as Option<Nominations>).unwrap().targets.forEach((target)=>{
               targets.push(target.toString());
             });
           } catch(err) {
             targets = [];
-            logger.error(err);
+            logger.error(err as Error);
             logger.debug(nominator.toString());
           }
           balancedNominators.push(new BalancedNominator(id, targets, _balance));
@@ -475,7 +478,7 @@ class ChainData {
     if(!this.api) {
       throw new ApiError();
     }
-    const validatorCount = await this.api.query.staking.validatorCount();
+    const validatorCount = await this.api.query.staking.validatorCount<u32>();
     return validatorCount.toNumber();
   }
 
@@ -483,14 +486,15 @@ class ChainData {
     if(!this.api) {
       throw new ApiError();
     }
-    return this.api.consts.staking.maxNominatorRewardedPerValidator.toNumber();
+    const max = this.api.consts.staking.maxNominatorRewardedPerValidator as u32;
+    return max.toNumber();
   }
 
   async getUnappliedSlashOfEra(era: number): Promise<ValidatorSlash[]> {
     if(!this.api) {
       throw new ApiError();
     }
-    const unappliedSlashes = await this.api.query.staking.unappliedSlashes(era);
+    const unappliedSlashes = await this.api.query.staking.unappliedSlashes<Vec<UnappliedSlash>>(era);
     const slashes = new Array<ValidatorSlash>();
     unappliedSlashes.forEach((slash)=>{
       const others = new Array<string[]>();

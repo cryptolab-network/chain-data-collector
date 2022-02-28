@@ -50,7 +50,7 @@ const ChainInfoSchema: Schema = new Schema({
   lastFetchedBlock: Number,
 });
 
-const ChainInfoModel: Model<IChainInfo> = model('ChainInfo', ChainInfoSchema);
+const ChainInfoModel = model('ChainInfo', ChainInfoSchema);
 
 
 interface IValidator extends Document {
@@ -93,7 +93,7 @@ ValidatorSchema.index({
   'id': 1
 }, {name: 'id_'});
 
-const ValidatorModel: Model<IValidator> = model('Validator', ValidatorSchema);
+const ValidatorModel = model('Validator', ValidatorSchema);
 
 interface INomination extends Document {
   era: number;
@@ -121,7 +121,7 @@ const NominationSchema: Schema = new Schema({
   selfStake: {type: String, set: toHexString},
 });
 
-const NominationModel: Model<INomination> = model('Nomination', NominationSchema);
+const NominationModel = model('Nomination', NominationSchema);
 
 NominationSchema.index({
   'validator': 1

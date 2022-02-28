@@ -14,7 +14,7 @@ export = {
   MONGO_DBNAME_POLKADOT: 'polkadot',
   MONGO_DBNAME_WESTEND: 'westend',
   PAGE_SIZE: 1500,
-  REDIS_URL: '127.0.0.1',
+  REDIS_URL: '192.168.1.105',
   REDIS_PORT: 6379,
   WESTEND_WSS: 'wss://westend.api.onfinality.io/public-ws',
   SLACK_WEBHOOK: '',

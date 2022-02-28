@@ -1,4 +1,6 @@
 import { ApiPromise } from "@polkadot/api";
+import type { Option, u32, Vec } from '@polkadot/types';
+import type { ActiveEraInfo, Event } from '@polkadot/types/interfaces';
 import { ChainData } from "../chainData";
 import { DatabaseHandler } from "../db/database";
 // eslint-disable-next-line
@@ -63,7 +65,8 @@ export class RpcListener {
               logger.info(`Processing ${this.chain} block ${i}`);
             }
             const blockHash = await this.api.rpc.chain.getBlockHash(i);
-            const era = await this.api.query.staking.activeEra.at(blockHash);
+            const apiAt = await this.api.at(blockHash);
+            const era = await apiAt.query.staking.activeEra<Option<ActiveEraInfo>>();
             if(era.unwrap().index.toNumber() !== this.currentEra) {
               this.currentEra = era.unwrap().index.toNumber();
               logger.debug('era = ' + this.currentEra);
@@ -98,7 +101,7 @@ export class RpcListener {
           }
       }
     } catch(err) {
-      logger.error(err);
+      logger.error(err as Error);
     } finally {
       this.isFetchingRewards = false;
       logger.info('Fetch reward loop ends');
@@ -106,8 +109,9 @@ export class RpcListener {
   }
 
   private async getEventsInBlock(blockHash: string) {
-    const allRecords = await this.api.query.system.events.at(blockHash);
-    const timestamp = await this.api.query.timestamp.now.at(blockHash);
+    const apiAt = await this.api.at(blockHash);
+    const allRecords = await apiAt.query.system.events<Vec<any>>();
+    const timestamp = await apiAt.query.timestamp.now();
     const rewards = [];
     const chills = [];
     const kicks = [];
