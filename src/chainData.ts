@@ -234,7 +234,7 @@ class ChainData {
     }
     console.timeEnd('[ChainData] Retrieving next elected');
     console.time('[ChainData] Retrieving identity for next elected');
-    let promises1 = [];
+    let promises1: any[] = [];
     for(let i = 0; i < nextElects.length; i++) {
       const nextElect = nextElects[i];
       if(nextElect !== undefined) {
@@ -289,16 +289,16 @@ class ChainData {
           intentions.push(validator);
         }));
       }
-      if (i % 10 === 0) {
+      // if (i % 10 === 0) {
         await Promise.all(promises1);
         promises1 = [];
-        await sleep(100);
-      }
+        await sleep(10);
+      // }
     }
-    if(promises1.length > 0) {
+    // if(promises1.length > 0) {
       await Promise.all(promises1);
       await sleep(100);
-    }
+    // }
     console.timeEnd('[ChainData] Retrieving identity for waitings');
     validators = validators.concat(intentions);
     console.time('[ChainData] Retrieving balance for waitings');
