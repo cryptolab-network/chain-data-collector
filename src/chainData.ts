@@ -336,10 +336,10 @@ class ChainData {
           validatorList.add(authorityId.toString());
         }));
       }
-      if (promises.length >= 10) {
+      if (promises.length >0) {
         await Promise.all(promises);
         promises = [];
-        await sleep(100);
+        await sleep(10);
       }
     }
     if (promises.length > 0) {
